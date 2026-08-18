@@ -5,9 +5,9 @@
 
 ## 기여자
 
-| 프로필 | GitHub | 역할 | 담당 업무 |
+| 프로필 | GitHub | 역할 | 담당 |
 | :---: | :---: | :---: | :--- |
-| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Creator** [N%] | |
-| <img src="https://github.com/-.png" width="80"> | **-**<br>([@-](https://github.com/-)) | **-** [N%] | |
-| <img src="https://github.com/-.png" width="80"> | **-**<br>([@-](https://github.com/-)) | **-** [N%] | |
-| <img src="https://github.com/-.png" width="80"> | **-**<br>([@-](https://github.com/-)) | **-** [N%] | |
+| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Full-Stack**[N%] | Front-end, Back-end, Design |
+| <img src="https://github.com/-.png" width="80"> | **고성민**<br>([@ksm524923](https://github.com/ksm524923)) | **Back-end** [N%] | |
+| <img src="https://github.com/-.png" width="80"> | **이인서**<br>([@iioct](https://github.com/iioct)) | **Design** [N%] | |
+| <img src="https://github.com/-.png" width="80"> | **박지성**<br>([@-](https://github.com/-)) | **Back-end** [N%] | |
