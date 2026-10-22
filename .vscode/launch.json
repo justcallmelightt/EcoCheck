@@ -1,0 +1,6 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {"type": "java", "name": "EcoCheck Java server", "request": "launch", "mainClass": "kr.ecocheck.App", "projectName": "ecocheck-server", "cwd": "${workspaceFolder}/backend", "console": "integratedTerminal"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label": "EcoCheck: test", "type": "shell", "command": "./mvnw test", "windows": {"command": ".\\mvnw.cmd test"}, "options": {"cwd": "${workspaceFolder}/backend"}, "group": "test", "problemMatcher": []},
+    {"label": "EcoCheck: build", "type": "shell", "command": "./mvnw package", "windows": {"command": ".\\mvnw.cmd package"}, "options": {"cwd": "${workspaceFolder}/backend"}, "group": {"kind": "build", "isDefault": true}, "problemMatcher": []},
+    {"label": "EcoCheck: run", "type": "shell", "command": "java -jar target/ecocheck-server-0.1.0.jar", "options": {"cwd": "${workspaceFolder}/backend"}, "dependsOn": "EcoCheck: build", "problemMatcher": []}
+  ]
+}

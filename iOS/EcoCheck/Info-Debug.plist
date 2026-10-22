@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>NSCameraUsageDescription</key><string>쓰레기 사진을 촬영해 이 아이폰에서 분리배출 방법을 분석합니다.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>개발용 EcoCheck 서버에 스캔 기록을 저장하고 조회합니다.</string>
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+</dict></plist>
