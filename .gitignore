@@ -3,3 +3,10 @@
 **/*.xcuserstate
 **/DerivedData/
 **/.build/
+**/target/
+**/build/
+**/.env
+**/.env.local
+**/.tools/
+**/.data/
+**/*.log
