@@ -25,6 +25,11 @@ struct ScanPage: Decodable, Sendable {
     let offset: Int
 }
 
+private struct ServerFailure: Decodable {
+    struct Detail: Decodable { let message: String }
+    let error: Detail
+}
+
 enum APIError: LocalizedError {
     case configuration, keychain, invalidResponse, server(String)
     var errorDescription: String? {
@@ -108,8 +113,7 @@ actor EcoCheckAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200...299).contains(response.statusCode) else {
-            struct Failure: Decodable { struct Detail: Decodable { let message: String }; let error: Detail }
-            let failure = try? JSONDecoder().decode(Failure.self, from: data)
+            let failure = try? JSONDecoder().decode(ServerFailure.self, from: data)
             throw APIError.server(failure?.error.message ?? "서버 연결을 확인해주세요. (\(response.statusCode))")
         }
         return try JSONDecoder().decode(T.self, from: data)
