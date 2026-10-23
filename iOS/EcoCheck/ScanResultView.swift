@@ -2,12 +2,13 @@ import SwiftUI
 
 struct ScanResultView: View {
     let imageData: Data
-    @State private var classification: Classification?
+    @State private var analysis: AnalysisResult?
     @State private var analysisError: String?
     @State private var saveMessage: String?
+    @State private var isAnalyzing = false
     @State private var isSaving = false
     @State private var isSaved = false
-    @State private var scanID = UUID().uuidString.lowercased()
+    @State private var analysisTask: Task<Void, Never>?
 
     var body: some View {
         ScrollView {
@@ -15,46 +16,84 @@ struct ScanResultView: View {
                 if let image = UIImage(data: imageData) {
                     Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: 260)
                 }
-                if let result = classification {
-                    Text(result.guide.name).font(.title2.bold())
-                    Text("\(result.guide.material) · 모델 신뢰도 \(Int(result.confidence * 100))%")
-                        .foregroundStyle(.secondary)
+                if let result = analysis {
+                    Text(result.name).font(.title2.bold())
+                    Text(result.material).foregroundStyle(.secondary)
+                    Text(result.reason).font(.callout)
                     GuideSteps(guide: result.guide)
-                    Button(isSaved ? "기록 저장 완료" : "스캔 기록 저장") {
-                        Task { await save(result) }
+                    if result.saveAllowed {
+                        Button(isSaved ? "기록 저장 완료" : "결과를 확인하고 기록 저장") {
+                            Task { await save(result) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isSaving || isSaved)
+                    } else {
+                        Text("확실하지 않은 결과라 기록으로 저장할 수 없어요. 다시 촬영하거나 기본 안내를 확인해주세요.")
+                            .font(.callout).foregroundStyle(.secondary)
+                        NavigationLink("기본 분리배출 안내 보기") { GuideListView() }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isSaving || isSaved)
                     if isSaving { ProgressView("저장 중…") }
                 } else if let analysisError {
                     Label("분석을 완료하지 못했어요", systemImage: "info.circle").font(.headline)
                     Text(analysisError)
+                    Button("다시 분석") { startAnalysis() }.disabled(isAnalyzing)
                     NavigationLink("기본 분리배출 안내 보기") { GuideListView() }
+                } else if isAnalyzing {
+                    ProgressView("사진을 분석 중…")
                 } else {
-                    ProgressView("아이폰에서 분석 중…")
+                    Text("사진이 EcoCheck 서버를 거쳐 Google Gemini로 전송돼요. 무료 API에서는 Google이 입력을 제품 개선에 사용할 수 있으니 개인정보가 담긴 사진은 보내지 마세요. 분석 결과를 확인한 뒤에만 기록을 저장합니다.")
+                        .font(.callout)
+                    Button("동의하고 사진 분석") { startAnalysis() }
+                        .buttonStyle(.borderedProminent)
+                    NavigationLink("사진 전송 없이 기본 안내 보기") { GuideListView() }
                 }
                 if let saveMessage { Text(saveMessage).font(.callout).foregroundStyle(.secondary) }
-                Text("사진 분석은 아이폰에서 진행돼요. 기록 저장 시 분류·신뢰도·모델 버전만 서버로 전송해요.")
+                Text("서버에는 사진을 저장하지 않아요. AI 판단은 틀릴 수 있으니 실제 배출 전 안내를 확인해주세요.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             .padding(24)
         }
         .navigationTitle("스캔 결과")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            do { classification = try await OnDeviceClassifier.shared.classify(imageData) }
-            catch is CancellationError { }
+        .onDisappear { analysisTask?.cancel() }
+    }
+
+    private func startAnalysis() {
+        guard !isAnalyzing else { return }
+        analysisError = nil
+        isAnalyzing = true
+        analysisTask = Task {
+            do {
+                let jpeg = try Self.makeJPEG(from: imageData)
+                let result = try await EcoCheckAPI.shared.analyze(jpegData: jpeg)
+                try Task.checkCancellation()
+                analysis = result
+            } catch is CancellationError { }
             catch { analysisError = error.localizedDescription }
+            isAnalyzing = false
         }
     }
 
-    @MainActor private func save(_ result: Classification) async {
+    @MainActor private static func makeJPEG(from data: Data) throws -> Data {
+        guard let image = UIImage(data: data) else { throw ClassificationError.invalidImage }
+        let ratio = min(1, 1600 / max(image.size.width, image.size.height))
+        let size = CGSize(width: max(1, image.size.width * ratio), height: max(1, image.size.height * ratio))
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let normalized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+        for quality in [CGFloat(0.82), 0.65, 0.45] {
+            if let jpeg = normalized.jpegData(compressionQuality: quality), jpeg.count <= 4 * 1024 * 1024 {
+                return jpeg
+            }
+        }
+        throw APIError.server("사진 크기를 줄이지 못했어요. 다른 사진을 선택해주세요.")
+    }
+
+    @MainActor private func save(_ result: AnalysisResult) async {
         isSaving = true
         defer { isSaving = false }
         do {
-            // Retry with the same UUID so a timeout cannot duplicate the record.
-            let _ = try await EcoCheckAPI.shared.save(ScanSubmission(id: scanID, categoryId: result.guide.id,
-                confidence: result.confidence, modelVersion: result.modelVersion))
+            // Retry with the same server analysis ID so a timeout cannot duplicate the record.
+            let _ = try await EcoCheckAPI.shared.save(ScanSubmission(analysisId: result.id, confirmed: true))
             isSaved = true
             saveMessage = "기록을 저장했어요."
         } catch { saveMessage = "저장하지 못했어요. \(error.localizedDescription) 다시 눌러 재시도할 수 있어요." }

@@ -24,6 +24,18 @@ SELECT COUNT(*) AS located FROM ecocheck_v2_bins WHERE latitude IS NOT NULL;
 
 [Google AI Studio](https://aistudio.google.com/apikey)에서 API 키를 만들고 `.env`의 GEMINI_API_KEY에 넣습니다. 모델은 GEMINI_MODEL에서 변경합니다. 기본 모델 gemini-3.8-flash는 2026-10-23 공식 모델 목록을 기준으로 지정했습니다. 계정별 모델 접근과 사용량은 발급 후 확인해야 합니다.
 
+`gemini-3.8-flash`의 Standard API는 공식 요금표에 무료 티어가 표시돼 있습니다. 무료 티어는 요청·토큰 한도가 있으며 계정의 실제 한도는 AI Studio에서 확인합니다. 무료 티어에 전송한 내용은 Google 제품 개선에 사용될 수 있으므로 개인정보가 보이는 사진은 테스트에 사용하지 마세요. 서버는 무료 티어를 강제할 수 없으니 유료 프로젝트의 키를 연결하기 전에는 계정의 결제 상태를 확인하세요.
+
+DB와 네이버 지도 설정에 앞서 Gemini 사진 호출만 확인하려면, 저장소 루트에서 `backend/.env.example`을 `backend/.env`로 복사해 키를 넣고 아래 명령을 실행하세요. 사진은 JPEG/PNG 4MiB 이하로 준비합니다. 이 명령은 실제 Gemini API 요청을 1회 보내지만 사진이나 키를 DB·출력 파일에 저장하지 않습니다.
+
+```sh
+cd backend
+./mvnw package
+java -jar target/ecocheck-server-0.1.0.jar --check-gemini-image /absolute/path/to/test-photo.jpg
+```
+
+`categoryId`, `needsConfirmation`, `reason`이 반환되면 사진 요청·응답 계약을 확인한 것입니다. AI 판단의 정확도나 iOS 앱 전체 흐름은 별도 사진과 실제 앱에서 검증해야 합니다. 키는 채팅, 커밋, 스크린샷에 노출하지 마세요.
+
 ## 3. 네이버 Maps 발급
 
 [NAVER Cloud Maps](https://www.ncloud.com/product/application/maps) → 콘솔 → Maps → Application 등록.
@@ -32,6 +44,14 @@ SELECT COUNT(*) AS located FROM ecocheck_v2_bins WHERE latitude IS NOT NULL;
 - 서버 주소 변환: Geocoding 선택.
 - 발급한 Client ID와 Secret을 `.env`에 각각 넣습니다.
 - Client ID만 iOS 지도 SDK에서 사용하고 Secret은 서버에 보관합니다.
+
+iOS 앱의 Bundle ID는 Xcode 타깃에 설정된 값과 정확히 같아야 합니다. `--check-naver`는 DB나 Gemini 없이 서울시청 주소를 한 번 변환해 서버 키와 Geocoding 활성화 여부를 확인합니다. 이 명령만으로 iOS 지도 표시까지 검증되지는 않습니다.
+
+```sh
+cd backend
+./mvnw package
+java -jar target/ecocheck-server-0.1.0.jar --check-naver
+```
 
 두 API의 약관·결제 설정·이용 한도는 본인 계정에서 확인합니다. 서버 실행만으로 외부 API는 호출되지 않습니다. 아래 확인 명령은 실제 API를 호출하며 계정 사용량을 소비할 수 있습니다.
 
@@ -56,10 +76,10 @@ python scripts/convert-seoul-data.py data/seoul-bins-202511.xlsx data/seoul-bins
 네이버 키를 넣고 먼저 최대 10개 주소만 변환하세요. 새 출력 파일을 지정해야 합니다.
 
 ```powershell
-java -jar target/ecocheck-server-0.1.0.jar --geocode-bins data/seoul-bins-202511.json data/seoul-bins-located-01.json 10
+java -jar target/ecocheck-server-0.1.0.jar --geocode-bins data/seoul-bins-202511.json data/seoul-bins-located-01.json 10 중구
 ```
 
-주소 중복은 한 번만 호출합니다. 전체 정규화본에는 서로 다른 주소 3,926개가 있으므로 전체 변환 전 API 한도·비용을 확인하세요. 복수 후보/검색 실패는 좌표를 임의 선택하지 않습니다. 주소 중심 좌표는 시설물 실제 위치와 다를 수 있으므로 상세 위치와 대조하세요.
+마지막 자치구 인수는 선택 사항입니다. 중구를 지정하면 서울시청 근처 시연용 좌표부터 준비할 수 있습니다. 주소 중복은 한 번만 호출합니다. 전체 정규화본에는 서로 다른 주소 3,926개가 있으므로 전체 변환 전 API 한도·비용을 확인하세요. 복수 후보/검색 실패는 좌표를 임의 선택하지 않습니다. 주소 중심 좌표는 시설물 실제 위치와 다를 수 있으므로 상세 위치와 대조하세요.
 
 계속 변환하려면 이전 출력 JSON을 입력으로 사용하고 새로운 출력명을 지정합니다. 이미 좌표가 있는 항목은 건너뜁니다. 현재 실행 내에서 주소를 캐시합니다.
 

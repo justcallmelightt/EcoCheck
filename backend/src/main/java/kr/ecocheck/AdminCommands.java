@@ -9,6 +9,45 @@ import kr.ecocheck.Models.Bin;
 /** 비용이 발생할 수 있는 외부 호출/데이터 적재는 공개 API가 아닌 로컬 CLI에서만 실행합니다. */
 final class AdminCommands {
   static void run(String[] args, AppConfig config, MySqlRepository db) throws Exception {
+    if (args[0].equals("--check-naver")) {
+      if (args.length != 1) throw new IllegalArgumentException("사용법: --check-naver");
+      var naver = new NaverMapClient(config);
+      if (!naver.configured())
+        throw new ApiException(503, "NAVER_NOT_CONFIGURED", "backend/.env에 NAVER_MAP_CLIENT_ID와 NAVER_MAP_CLIENT_SECRET을 설정해주세요.");
+      var addresses = naver.geocode("서울특별시 중구 세종대로 110");
+      if (addresses.size() != 1)
+        throw new ApiException(502, "NAVER_GEOCODING_UNEXPECTED", "서울시청 주소의 단일 좌표를 확인하지 못했습니다.");
+      var address = addresses.get(0).getAsJsonObject();
+      System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(Map.of(
+          "status", "PASS", "address", "서울특별시 중구 세종대로 110",
+          "latitude", address.get("y").getAsDouble(), "longitude", address.get("x").getAsDouble())));
+      return;
+    }
+    if (args[0].equals("--check-gemini-image")) {
+      if (args.length != 2)
+        throw new IllegalArgumentException("사용법: --check-gemini-image FILE.jpg|FILE.png");
+      if (config.geminiKey().isBlank())
+        throw new ApiException(503, "GEMINI_NOT_CONFIGURED", "backend/.env에 GEMINI_API_KEY를 설정해주세요.");
+      Path image = Path.of(args[1]);
+      if (!Files.isRegularFile(image) || Files.size(image) > 4L * 1024 * 1024)
+        throw new IllegalArgumentException("4MiB 이하 JPEG/PNG 파일을 지정해주세요.");
+      byte[] bytes = Files.readAllBytes(image);
+      String mime = bytes.length >= 3 && (bytes[0] & 0xff) == 0xff
+              && (bytes[1] & 0xff) == 0xd8 && (bytes[2] & 0xff) == 0xff
+          ? "image/jpeg"
+          : bytes.length >= 8 && (bytes[0] & 0xff) == 0x89
+              && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G'
+                  ? "image/png" : "unsupported";
+      String encoded = Base64.getEncoder().encodeToString(bytes);
+      AnalysisService.validateImage(mime, encoded);
+      var prediction = new GeminiClient(config, new GuideService()).classify(mime, encoded);
+      System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(Map.of(
+          "model", config.geminiModel(),
+          "categoryId", prediction.categoryId(),
+          "needsConfirmation", prediction.needsConfirmation(),
+          "reason", prediction.reason())));
+      return;
+    }
     if (args[0].equals("--check-apis")) {
       var results = new LinkedHashMap<String, Object>();
       results.put("database", db.healthy() ? "PASS" : "UNAVAILABLE");
@@ -80,12 +119,14 @@ final class AdminCommands {
       var naver = new NaverMapClient(config);
       int max = args.length >= 4 ? Integer.parseInt(args[3]) : 10;
       if (max < 1 || max > 10000) throw new IllegalArgumentException("최대 호출 수: 1~10000");
+      String district = args.length >= 5 ? args[4] : "";
       Map<String, JsonArray> cache = new HashMap<>();
       int calls = 0, located = 0, ambiguous = 0;
       for (var row : root.getAsJsonArray("items")) {
         var item = row.getAsJsonObject();
         var bin = new Gson().fromJson(item, Bin.class);
         validate(bin);
+        if (!district.isEmpty() && !district.equals(bin.district())) continue;
         if (bin.latitude() != null) continue;
         String address = "서울특별시 " + bin.district() + " " + bin.address();
         JsonArray addresses = cache.get(address);
@@ -132,8 +173,8 @@ final class AdminCommands {
       return;
     }
     throw new IllegalArgumentException(
-        "명령: --check-apis | --import-bins FILE.json | --geocode-bins INPUT.json OUTPUT.json"
-            + " [최대호출수=10]");
+        "명령: --check-apis | --check-naver | --check-gemini-image FILE.jpg | --import-bins FILE.json | --geocode-bins INPUT.json OUTPUT.json"
+            + " [최대호출수=10] [자치구]");
   }
 
   private static void validate(Bin b) {

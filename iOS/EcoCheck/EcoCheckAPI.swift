@@ -1,11 +1,26 @@
 import Foundation
 import Security
 
-struct ScanSubmission: Codable, Sendable {
+struct ScanSubmission: Encodable, Sendable {
+    let analysisId: String
+    let confirmed: Bool
+}
+
+struct AnalysisResult: Decodable, Identifiable, Sendable {
     let id: String
     let categoryId: String
-    let confidence: Double
+    let name: String
+    let material: String
+    let steps: [String]
+    let note: String
+    let reason: String
+    let saveAllowed: Bool
+    let source: String
     let modelVersion: String
+
+    var guide: RecyclingGuide {
+        RecyclingGuide(id: categoryId, name: name, material: material, steps: steps, note: note)
+    }
 }
 
 struct SavedScan: Codable, Identifiable, Sendable {
@@ -13,7 +28,6 @@ struct SavedScan: Codable, Identifiable, Sendable {
     let categoryId: String
     let name: String
     let material: String
-    let confidence: Double
     let modelVersion: String
     let createdAt: String
 }
@@ -23,6 +37,32 @@ struct ScanPage: Decodable, Sendable {
     let total: Int
     let limit: Int
     let offset: Int
+}
+
+struct MapConfiguration: Decodable, Sendable {
+    let clientId: String
+}
+
+struct NearbyBin: Decodable, Identifiable, Sendable {
+    struct Bin: Decodable, Sendable {
+        let id: String
+        let district: String
+        let address: String
+        let wasteType: String
+        let latitude: Double?
+        let longitude: Double?
+    }
+    let bin: Bin
+    let distanceMeters: Double
+    var id: String { bin.id }
+}
+
+struct NearbyBins: Decodable, Sendable {
+    let items: [NearbyBin]
+    let count: Int
+    let source: String
+    let sourceDate: String
+    let notice: String
 }
 
 private struct ServerFailure: Decodable {
@@ -84,6 +124,13 @@ actor EcoCheckAPI {
         return nil
     }
 
+    func analyze(jpegData: Data) async throws -> AnalysisResult {
+        struct Photo: Encodable { let mimeType: String; let imageBase64: String }
+        return try await request("api/v1/analyze", method: "POST",
+            body: JSONEncoder().encode(Photo(mimeType: "image/jpeg", imageBase64: jpegData.base64EncodedString())),
+            timeout: 60)
+    }
+
     func save(_ submission: ScanSubmission) async throws -> SavedScan {
         try await request("api/v1/scans", method: "POST", body: JSONEncoder().encode(submission))
     }
@@ -92,12 +139,26 @@ actor EcoCheckAPI {
         try await request("api/v1/scans", query: [URLQueryItem(name: "limit", value: "50"), URLQueryItem(name: "offset", value: String(offset))])
     }
 
+    func mapConfiguration() async throws -> MapConfiguration {
+        try await request("api/v1/map-config")
+    }
+
+    func nearbyBins(latitude: Double, longitude: Double, type: String = "all") async throws -> NearbyBins {
+        try await request("api/v1/bins", query: [
+            URLQueryItem(name: "lat", value: String(latitude)),
+            URLQueryItem(name: "lng", value: String(longitude)),
+            URLQueryItem(name: "radius", value: "1000"),
+            URLQueryItem(name: "type", value: type)
+        ])
+    }
+
     func delete(id: String) async throws {
         struct Deleted: Decodable { let deleted: Bool }
         let _: Deleted = try await request("api/v1/scans/\(id)", method: "DELETE")
     }
 
-    private func request<T: Decodable>(_ path: String, method: String = "GET", body: Data? = nil, query: [URLQueryItem] = []) async throws -> T {
+    private func request<T: Decodable>(_ path: String, method: String = "GET", body: Data? = nil,
+                                       query: [URLQueryItem] = [], timeout: TimeInterval = 15) async throws -> T {
         let setting = UserDefaults.standard.string(forKey: "EcoCheckServerURL") ?? ""
         guard let base = Self.validBaseURL(setting),
               var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false) else { throw APIError.configuration }
@@ -105,11 +166,11 @@ actor EcoCheckAPI {
         guard let url = components.url else { throw APIError.configuration }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 15
+        request.timeoutInterval = timeout
         request.setValue("Bearer \(try DeviceToken.loadOrCreate())", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
-        // Payloads contain classification metadata only. No photo data is sent.
+        // Only /analyze sends a photo, after the user explicitly starts analysis.
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200...299).contains(response.statusCode) else {

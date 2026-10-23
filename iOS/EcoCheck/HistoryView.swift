@@ -11,7 +11,7 @@ struct HistoryView: View {
                 ForEach(records) { scan in
                     VStack(alignment: .leading, spacing: 5) {
                         Text(scan.name).font(.headline)
-                        Text("\(scan.material) · 모델 신뢰도 \(Int(scan.confidence * 100))%")
+                        Text(scan.material)
                         Text(scan.createdAt).font(.caption).foregroundStyle(.secondary)
                     }
                     .swipeActions {
@@ -74,7 +74,8 @@ struct ServerSettingsView: View {
                 if let message { Text(message).font(.footnote) }
             }
             Section {
-                Text("AI 판별과 기본 안내는 서버 없이 이용할 수 있어요. 기록 저장·조회·삭제에는 서버 연결이 필요해요.")
+                Text("사진 분석과 기록 저장·조회·삭제에는 서버 연결이 필요해요. 기본 분리배출 안내는 서버 없이 볼 수 있어요.")
+                Text("사진 분석을 시작하면 사진이 EcoCheck 서버를 거쳐 Google Gemini로 전송돼요. 전송 전 결과 화면에서 선택할 수 있어요.")
                 Text("기록은 이 기기의 보안 토큰으로 구분해요. 아직 회원가입·다른 기기 동기화 기능은 없어요.")
             }
         }

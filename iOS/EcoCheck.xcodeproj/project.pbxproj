@@ -1,7 +1,8 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 56;
 	objects = {
 
@@ -10,12 +11,14 @@
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ContentView.swift */; };
 		A10000000000000000000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* Assets.xcassets */; };
 		A10000000000000000000005 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* Fonts */; };
-		A10000000000000000000006 /* OnDeviceClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006; };
-		A10000000000000000000007 /* EcoCheckAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007; };
-		A10000000000000000000008 /* ScanResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008; };
-		A10000000000000000000009 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009; };
-		A10000000000000000000010 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010; };
-		A10000000000000000000011 /* recycling-guides.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011; };
+		A10000000000000000000006 /* OnDeviceClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* OnDeviceClassifier.swift */; };
+		A10000000000000000000007 /* EcoCheckAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* EcoCheckAPI.swift */; };
+		A10000000000000000000008 /* ScanResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* ScanResultView.swift */; };
+		A10000000000000000000009 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* HistoryView.swift */; };
+		A10000000000000000000010 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* CameraCapture.swift */; };
+		A10000000000000000000011 /* ../../shared/recycling-guides.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../shared/recycling-guides.json */; };
+		A10000000000000000000012 /* BinMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* BinMapView.swift */; };
+		A10000000000000000000013 /* NMapsMap in Frameworks */ = {isa = PBXBuildFile; productRef = A70000000000000000000001 /* NMapsMap */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,32 +27,80 @@
 		A20000000000000000000003 /* EcoCheck.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EcoCheck.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000005 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
-		A20000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceClassifier.swift; sourceTree = "<group>"; };
-		A20000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EcoCheckAPI.swift; sourceTree = "<group>"; };
-		A20000000000000000000008 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanResultView.swift; sourceTree = "<group>"; };
-		A20000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
-		A20000000000000000000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
-		A20000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../shared/recycling-guides.json"; sourceTree = "<group>"; };
+		A20000000000000000000006 /* OnDeviceClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceClassifier.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* EcoCheckAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EcoCheckAPI.swift; sourceTree = "<group>"; };
+		A20000000000000000000008 /* ScanResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanResultView.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* ../../shared/recycling-guides.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../shared/recycling-guides.json"; sourceTree = "<group>"; };
+		A20000000000000000000012 /* BinMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A30000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A30000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000013 /* NMapsMap in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A40000000000000000000001 = {isa = PBXGroup; children = (A40000000000000000000002 /* EcoCheck */, A40000000000000000000003 /* Products */); sourceTree = "<group>"; };
-		A40000000000000000000002 /* EcoCheck */ = {isa = PBXGroup; children = (A20000000000000000000001 /* EcoCheckApp.swift */, A20000000000000000000002 /* ContentView.swift */, A20000000000000000000006, A20000000000000000000007, A20000000000000000000008, A20000000000000000000009, A20000000000000000000010, A20000000000000000000011, A20000000000000000000004 /* Assets.xcassets */, A20000000000000000000005 /* Fonts */); path = EcoCheck; sourceTree = "<group>"; };
-		A40000000000000000000003 /* Products */ = {isa = PBXGroup; children = (A20000000000000000000003 /* EcoCheck.app */); name = Products; sourceTree = "<group>"; };
+		A40000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A40000000000000000000002 /* EcoCheck */,
+				A40000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A40000000000000000000002 /* EcoCheck */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000001 /* EcoCheckApp.swift */,
+				A20000000000000000000002 /* ContentView.swift */,
+				A20000000000000000000006 /* OnDeviceClassifier.swift */,
+				A20000000000000000000007 /* EcoCheckAPI.swift */,
+				A20000000000000000000008 /* ScanResultView.swift */,
+				A20000000000000000000009 /* HistoryView.swift */,
+				A20000000000000000000010 /* CameraCapture.swift */,
+				A20000000000000000000012 /* BinMapView.swift */,
+				A20000000000000000000011 /* ../../shared/recycling-guides.json */,
+				A20000000000000000000004 /* Assets.xcassets */,
+				A20000000000000000000005 /* Fonts */,
+			);
+			path = EcoCheck;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000003 /* EcoCheck.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
 		A50000000000000000000001 /* EcoCheck */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A90000000000000000000002 /* Build configuration list for PBXNativeTarget "EcoCheck" */;
-			buildPhases = (A30000000000000000000002 /* Sources */, A30000000000000000000001 /* Frameworks */, A30000000000000000000003 /* Resources */);
-			buildRules = ();
-			dependencies = ();
+			buildPhases = (
+				A30000000000000000000002 /* Sources */,
+				A30000000000000000000001 /* Frameworks */,
+				A30000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = EcoCheck;
+			packageProductDependencies = (
+				A70000000000000000000001 /* NMapsMap */,
+			);
 			productName = EcoCheck;
 			productReference = A20000000000000000000003 /* EcoCheck.app */;
 			productType = "com.apple.product-type.application";
@@ -59,39 +110,177 @@
 /* Begin PBXProject section */
 		A60000000000000000000001 /* Project object */ = {
 			isa = PBXProject;
-			attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600; TargetAttributes = {A50000000000000000000001 = {CreatedOnToolsVersion = 16.0; }; }; };
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A50000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
 			buildConfigurationList = A90000000000000000000001 /* Build configuration list for PBXProject "EcoCheck" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base);
+			knownRegions = (
+				en,
+				Base,
+			);
 			mainGroup = A40000000000000000000001;
+			packageReferences = (
+				A70000000000000000000002 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */,
+			);
 			productRefGroup = A40000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (A50000000000000000000001 /* EcoCheck */);
+			targets = (
+				A50000000000000000000001 /* EcoCheck */,
+			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A30000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000004 /* Assets.xcassets in Resources */, A10000000000000000000005 /* Fonts in Resources */, A10000000000000000000011); runOnlyForDeploymentPostprocessing = 0; };
+		A30000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000004 /* Assets.xcassets in Resources */,
+				A10000000000000000000005 /* Fonts in Resources */,
+				A10000000000000000000011 /* ../../shared/recycling-guides.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A30000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* EcoCheckApp.swift in Sources */, A10000000000000000000002 /* ContentView.swift in Sources */, A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, A10000000000000000000009, A10000000000000000000010); runOnlyForDeploymentPostprocessing = 0; };
+		A30000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* EcoCheckApp.swift in Sources */,
+				A10000000000000000000002 /* ContentView.swift in Sources */,
+				A10000000000000000000006 /* OnDeviceClassifier.swift in Sources */,
+				A10000000000000000000007 /* EcoCheckAPI.swift in Sources */,
+				A10000000000000000000008 /* ScanResultView.swift in Sources */,
+				A10000000000000000000009 /* HistoryView.swift in Sources */,
+				A10000000000000000000010 /* CameraCapture.swift in Sources */,
+				A10000000000000000000012 /* BinMapView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A80000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; DEBUG_INFORMATION_FORMAT = dwarf; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
-		A80000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
-		A80000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = "EcoCheck/Info-Debug.plist"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = "com.justcallmelight.EcoCheckLearning"; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; }; name = Debug; };
-		A80000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = EcoCheck/Info.plist; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE_IDENTIFIER = "com.justcallmelight.EcoCheckLearning"; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; }; name = Release; };
+		A80000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A80000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		A80000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "EcoCheck/Info-Debug.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "쓰레기 사진을 촬영해 분리배출 방법을 확인합니다.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "개발용 EcoCheck 서버에서 사진 분석과 주변 쓰레기통 조회, 기록 저장을 이용합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "주변 쓰레기통을 지도에 표시하기 위해 현재 위치를 사용합니다.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.justcallmelight.EcoCheckLearning;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A80000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EcoCheck/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "쓰레기 사진을 촬영해 분리배출 방법을 확인합니다.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "개발용 EcoCheck 서버에서 사진 분석과 주변 쓰레기통 조회, 기록 저장을 이용합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "주변 쓰레기통을 지도에 표시하기 위해 현재 위치를 사용합니다.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.justcallmelight.EcoCheckLearning;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A90000000000000000000001 /* Build configuration list for PBXProject "EcoCheck" */ = {isa = XCConfigurationList; buildConfigurations = (A80000000000000000000001 /* Debug */, A80000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		A90000000000000000000002 /* Build configuration list for PBXNativeTarget "EcoCheck" */ = {isa = XCConfigurationList; buildConfigurations = (A80000000000000000000003 /* Debug */, A80000000000000000000004 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A90000000000000000000001 /* Build configuration list for PBXProject "EcoCheck" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A80000000000000000000001 /* Debug */,
+				A80000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A90000000000000000000002 /* Build configuration list for PBXNativeTarget "EcoCheck" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A80000000000000000000003 /* Debug */,
+				A80000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A70000000000000000000002 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/navermaps/SPM-NMapsMap";
+			requirement = {
+				kind = exactVersion;
+				version = 3.24.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A70000000000000000000001 /* NMapsMap */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A70000000000000000000002 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */;
+			productName = NMapsMap;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A60000000000000000000001 /* Project object */;
 }

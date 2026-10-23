@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var showingCamera = false
     @State private var showingHistory = false
     @State private var showingSettings = false
+    @State private var showingMap = false
     @State private var photoError: String?
     @State private var loadTask: Task<Void, Never>?
 
@@ -102,7 +103,8 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("스캔할 사진 선택")
-                    tab("mappin", "지도")
+                    Button { showingMap = true } label: { tab("mappin", "지도") }
+                        .buttonStyle(.plain)
                     Button { showingSettings = true } label: { tab("person", "설정") }
                         .buttonStyle(.plain)
                 }
@@ -132,6 +134,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             NavigationStack { ServerSettingsView().toolbar { ToolbarItem(placement: .topBarTrailing) { Button("닫기") { showingSettings = false } } } }
+        }
+        .sheet(isPresented: $showingMap) {
+            NavigationStack { BinMapView().toolbar { ToolbarItem(placement: .topBarTrailing) { Button("닫기") { showingMap = false } } } }
         }
         .sheet(isPresented: $showingCamera, onDismiss: {
             if photoData != nil { showingPreview = true }
@@ -202,4 +207,8 @@ struct ContentView: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
+}
+
+#Preview {
+    ContentView()
 }

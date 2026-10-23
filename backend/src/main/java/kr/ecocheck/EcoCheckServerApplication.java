@@ -9,7 +9,12 @@ public final class EcoCheckServerApplication {
     var guides = new GuideService();
     var db = new MySqlRepository(config);
     if (args.length > 0) {
-      AdminCommands.run(args, config, db);
+      try {
+        AdminCommands.run(args, config, db);
+      } catch (ApiException e) {
+        System.err.println(e.code + ": " + e.getMessage());
+        System.exit(1);
+      }
       return;
     }
     var gemini = new GeminiClient(config, guides);
