@@ -1,9 +1,10 @@
 package kr.ecocheck;
 
-final class ApiException extends RuntimeException {
+final class ApiRequestException extends RuntimeException {
     final int status;
     final String code;
-    ApiException(int status, String code, String message) {
+
+    ApiRequestException(int status, String code, String message) {
         super(message);
         this.status = status;
         this.code = code;

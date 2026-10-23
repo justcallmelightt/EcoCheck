@@ -39,7 +39,7 @@ CREATE USER 'ecocheck'@'127.0.0.1' IDENTIFIED BY 'CHANGE_THIS_PASSWORD';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, REFERENCES ON ecocheck.* TO 'ecocheck'@'127.0.0.1';
 ```
 
-`.env.example`을 `.env`로 복사하고 DB URL·사용자·비밀번호를 수정합니다. 서버는 **backend 폴더**의 `.env`를 읽으며 환경변수가 우선합니다. 따옴표로 감싼 값은 지원하고 줄 끝 주석은 지원하지 않습니다. 시작할 때 `schema.sql`로 테이블을 만들고 공통 안내 JSON을 DB에 넣습니다.
+`.env.example`을 `.env`로 복사하고 DB URL·사용자·비밀번호를 수정합니다. 서버는 **backend 폴더**의 `.env`를 읽으며 환경변수가 우선합니다. 따옴표로 감싼 값은 지원하고 줄 끝 주석은 지원하지 않습니다. 시작할 때 `create-ecocheck-tables.sql`로 테이블을 만들고 공통 안내 JSON을 DB에 넣습니다.
 
 macOS/Linux에서는 `chmod +x mvnw`, `./mvnw package`, `java -jar target/ecocheck-server-0.1.0.jar`를 사용하세요.
 
@@ -96,3 +96,23 @@ Get-Content .env | ForEach-Object {
 직접 DB를 구성했다면 별도 테스트 DB와 권한을 만들고 `ECOCHECK_TEST_DB_URL`, `ECOCHECK_TEST_DB_USER`, `ECOCHECK_TEST_DB_PASSWORD`를 설정하세요. 실제 사용자 DB를 테스트에 지정하지 마세요. 통합 테스트는 무작위 기기 토큰의 기록만 만들고 삭제하며 재시작 후 유지·기기 분리·중복 요청·삭제·한국어 저장을 확인합니다.
 
 참고: [JDK HttpServer](https://docs.oracle.com/en/java/javase/26/docs/api/jdk.httpserver/com/sun/net/httpserver/HttpServer.html), [MySQL Connector/J](https://dev.mysql.com/doc/connector-j/en/connector-j-installing-maven.html), [Apple Vision + Core ML](https://developer.apple.com/documentation/coreml/classifying-images-with-vision-and-core-ml).
+
+## Java 파일별 역할
+
+기능 코드는 `backend/src/main/java/kr/ecocheck/`, 테스트는 `backend/src/test/java/kr/ecocheck/`에 있습니다.
+
+| 파일 | 역할 |
+|---|---|
+| `EcoCheckServerApplication.java` | 서버를 시작하고 DB와 HTTP 서버 연결 |
+| `ServerDatabaseConfig.java` | 서버 주소·포트·DB 접속 설정 읽기 |
+| `EcoCheckHttpServer.java` | 안내 조회와 스캔 기록 API 요청 처리·검증 |
+| `MySqlScanRecordRepository.java` | 실제 MySQL 안내 조회와 기록 저장·조회·삭제·집계 |
+| `ScanRecordRepository.java` | 기록 저장소가 제공해야 하는 기능 정의 |
+| `ScanDataModels.java` | 분리배출 안내·저장 요청·기록·통계 데이터 구조 |
+| `RecyclingGuideLoader.java` | 공통 JSON에서 분리배출 안내 읽기 |
+| `ApiRequestException.java` | API 오류 코드와 사용자 안내 메시지 전달 |
+| `ScanApiRequestValidationTest.java` | 잘못된 요청을 제대로 거절하는지 검사 |
+| `MySqlScanRecordIntegrationTest.java` | 실제 MySQL의 기록 저장·조회·삭제·기기 분리·재시도 검사 |
+| `resources/create-ecocheck-tables.sql` | MySQL 분류 안내·스캔 기록 테이블 생성 |
+
+`pom.xml`, `mvnw`, `mvnw.cmd`와 `src/main`, `src/test`는 빌드 도구가 사용하는 표준 이름입니다.
