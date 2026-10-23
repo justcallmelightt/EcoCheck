@@ -9,6 +9,15 @@
 
 > 일시: 10월 23일 오후 7:00 ~ 10월 24일 오후 12시
 
+## 기여자
+
+| 프로필 | GitHub | 역할 | 담당 |
+| :---: | :---: | :---: | :--- |
+| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Team Leader <br> Full-Stack** [N%] | Front-end, Back-end, Design |
+| <img src="https://github.com/ksm524923.png" width="80"> | **고성민**<br>([@ksm524923](https://github.com/ksm524923)) | **Back-end** [N%] | |
+| <img src="https://github.com/iioct.png" width="80"> | **이인서**<br>([@iioct](https://github.com/iioct)) | **Design** [N%] | |
+
+
 ## 현재 개발 구조
 
 - **iOS (SwiftUI + Core ML/Vision)**: 아이폰에서 사진을 분석하고 로컬 분리배출 안내를 표시합니다. 학습 모델은 아직 없으며 모델 연결 코드와 미준비 상태의 안내를 제공합니다.
@@ -18,11 +27,3 @@
 `아이폰 사진 → 아이폰 내부 AI → 로컬 안내 → 사용자가 저장 선택 → Java 서버 → MySQL`
 
 실행은 [Java/MySQL 안내](backend/README.md), 모델 추가는 [iOS 안내](iOS/README.md)를 참고하세요. Windows에서 Java 서버를 개발·실행할 수 있고 iOS 빌드·실행에는 Mac/Xcode가 필요합니다. 기존 기획서의 모바일 웹에서 iOS 앱 + Java/MySQL 구조로 변경했습니다.
-
-## 기여자
-
-| 프로필 | GitHub | 역할 | 담당 |
-| :---: | :---: | :---: | :--- |
-| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Team Leader <br> Full-Stack** [N%] | Front-end, Back-end, Design |
-| <img src="https://github.com/-.png" width="80"> | **고성민**<br>([@ksm524923](https://github.com/ksm524923)) | **Back-end** [N%] | |
-| <img src="https://github.com/-.png" width="80"> | **이인서**<br>([@iioct](https://github.com/iioct)) | **Design** [N%] | |
