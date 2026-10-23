@@ -10,3 +10,9 @@
 **/.tools/
 **/.data/
 **/*.log
+
+**/http-client.private.env.json
+**/*located*.json
+.idea/
+*.iml
+**/*.bak

@@ -2,299 +2,300 @@ package kr.ecocheck;
 
 import com.google.gson.*;
 import com.google.gson.stream.JsonReader;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.*;
 import java.io.*;
-import java.net.InetSocketAddress;
-import java.net.URLDecoder;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.security.*;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
-import kr.ecocheck.ScanDataModels.ScanInput;
 
+/** HTTP 입력/응답만 담당합니다. 변경할 기능은 각 Service 또는 Client로 이동하세요. */
 final class EcoCheckHttpServer implements AutoCloseable {
-    private final ScanRecordRepository store;
-    private final HttpServer server;
-    private final ExecutorService workers =
-            new ThreadPoolExecutor(
-                    4,
-                    8,
-                    30,
-                    TimeUnit.SECONDS,
-                    new ArrayBlockingQueue<>(64),
-                    new ThreadPoolExecutor.CallerRunsPolicy());
-    private final Gson json = new Gson();
-    private final Set<String> categoryIds;
+  private final HttpServer server;
+  private final ExecutorService workers =
+      new ThreadPoolExecutor(
+          4,
+          8,
+          30,
+          TimeUnit.SECONDS,
+          new ArrayBlockingQueue<>(32),
+          new ThreadPoolExecutor.CallerRunsPolicy());
+  private final Gson json = new GsonBuilder().serializeNulls().create();
+  private final AppConfig config;
+  private final ScanRepository db;
+  private final GuideService guides;
+  private final AnalysisService analyses;
+  private final BinService bins;
+  private final Map<String, long[]> rates = new HashMap<>();
 
-    EcoCheckHttpServer(InetSocketAddress address, ScanRecordRepository store) throws IOException {
-        this.store = store;
-        categoryIds = new HashSet<>();
+  EcoCheckHttpServer(
+      InetSocketAddress address,
+      AppConfig config,
+      ScanRepository db,
+      GuideService guides,
+      AnalysisService analyses)
+      throws IOException {
+    this.config = config;
+    this.db = db;
+    this.guides = guides;
+    this.analyses = analyses;
+    this.bins = new BinService(db);
+    server = HttpServer.create(address, 32);
+    server.setExecutor(workers);
+    server.createContext("/", this::handle);
+  }
 
-        for (var guide : RecyclingGuideLoader.load())
-            categoryIds.add(guide.id());
-        server = HttpServer.create(address, 64);
-        server.createContext("/", this::handle);
-        server.setExecutor(workers);
+  void start() {
+    server.start();
+  }
+
+  int port() {
+    return server.getAddress().getPort();
+  }
+
+  public void close() {
+    server.stop(0);
+    workers.shutdownNow();
+  }
+
+  private void handle(HttpExchange e) throws IOException {
+    try {
+      route(e);
+    } catch (ApiException x) {
+      respond(e, x.status, Map.of("error", Map.of("code", x.code, "message", x.getMessage())));
+    } catch (SQLException x) {
+      System.err.println("DB 요청 실패: SQLState=" + x.getSQLState());
+      respond(
+          e,
+          503,
+          Map.of(
+              "error",
+              Map.of(
+                  "code",
+                  "DATABASE_UNAVAILABLE",
+                  "message",
+                  "MySQL 연결과 schema.sql 실행 여부를 확인해주세요.")));
+    } catch (Exception x) {
+      System.err.println("요청 실패: " + x.getClass().getSimpleName());
+      respond(
+          e,
+          500,
+          Map.of("error", Map.of("code", "INTERNAL_ERROR", "message", "서버에서 요청을 처리하지 못했습니다.")));
+    } finally {
+      e.close();
     }
+  }
 
-    void start() {
-        server.start();
+  private void route(HttpExchange e) throws Exception {
+    String path = e.getRequestURI().getPath();
+    if (path.equals("/health")) {
+      method(e, "GET");
+      boolean ready = db.healthy();
+      respond(
+          e,
+          ready ? 200 : 503,
+          Map.of(
+              "status",
+              ready ? "ok" : "degraded",
+              "database",
+              ready ? "ready" : "unavailable",
+              "geminiConfigured",
+              !config.geminiKey().isBlank(),
+              "naverConfigured",
+              !config.naverId().isBlank() && !config.naverSecret().isBlank(),
+              "externalApisTested",
+              false));
+      return;
     }
-
-    int port() {
-        return server.getAddress().getPort();
+    if (path.equals("/api/v1/categories")) {
+      method(e, "GET");
+      respond(e, 200, guides.all());
+      return;
     }
-
-    public void close() {
-        server.stop(1);
-        workers.shutdownNow();
+    if (path.equals("/api/v1/map-config")) {
+      method(e, "GET");
+      respond(
+          e,
+          200,
+          Map.of("clientId", config.naverId(), "platform", "iOS", "service", "Mobile Dynamic Map"));
+      return;
     }
+    if (path.equals("/api/v1/bins")) {
+      method(e, "GET");
+      var q = query(e);
+      double lat = number(q, "lat"),
+          lng = number(q, "lng"),
+          radius = q.containsKey("radius") ? number(q, "radius") : 1000;
+      var items = bins.nearby(lat, lng, radius, q.getOrDefault("type", "all"));
+      respond(
+          e,
+          200,
+          Map.of(
+              "items",
+              items,
+              "count",
+              items.size(),
+              "source",
+              "서울열린데이터광장 OA-15069",
+              "sourceDate",
+              "2025-11",
+              "notice",
+              "주소 기준 좌표입니다. 실제 위치와 다를 수 있으며 재활용 가능 품목은 현장 표시를 확인해주세요."));
+      return;
+    }
+    if (path.equals("/api/v1/analyze")) {
+      method(e, "POST");
+      String owner = owner(e);
+      rate(owner);
+      var b = body(e, 5_600_000, Set.of("mimeType", "imageBase64"));
+      respond(e, 200, analyses.analyze(owner, string(b, "mimeType"), string(b, "imageBase64")));
+      return;
+    }
+    if (path.equals("/api/v1/scans")) {
+      String owner = owner(e);
+      if (e.getRequestMethod().equals("GET")) {
+        var q = query(e);
+        int limit = integer(q, "limit", 50, 1, 100), offset = integer(q, "offset", 0, 0, 10000);
+        respond(e, 200, db.history(owner, limit, offset));
+        return;
+      }
+      method(e, "POST");
+      var b = body(e, 4096, Set.of("analysisId", "confirmed"));
+      String id = uuid(string(b, "analysisId"));
+      if (!b.has("confirmed")
+          || !b.get("confirmed").isJsonPrimitive()
+          || !b.get("confirmed").getAsJsonPrimitive().isBoolean()
+          || !b.get("confirmed").getAsBoolean())
+        throw new ApiException(
+            400, "CONFIRMATION_REQUIRED", "분석 결과를 확인한 뒤 confirmed=true로 저장해주세요.");
+      respond(e, 200, db.save(owner, analyses.forSave(owner, id)));
+      return;
+    }
+    if (path.startsWith("/api/v1/scans/")) {
+      method(e, "DELETE");
+      String owner = owner(e), id = uuid(path.substring("/api/v1/scans/".length()));
+      if (!db.delete(owner, id)) throw new ApiException(404, "SCAN_NOT_FOUND", "기록이 없습니다.");
+      analyses.remove(owner, id);
+      respond(e, 200, Map.of("deleted", true));
+      return;
+    }
+    if (path.equals("/api/v1/statistics")) {
+      method(e, "GET");
+      respond(e, 200, Map.of("totalScans", db.history(owner(e), 1, 0).total()));
+      return;
+    }
+    throw new ApiException(404, "NOT_FOUND", "API 주소를 확인해주세요.");
+  }
 
-    private void handle(HttpExchange exchange) throws IOException {
-        try {
-            route(exchange);
-        } catch (ApiRequestException e) {
-            respond(
-                    exchange,
-                    e.status,
-                    Map.of("error", Map.of("code", e.code, "message", e.getMessage())));
-        } catch (SQLException e) {
-            System.err.println("Database request failed; SQL state=" + e.getSQLState());
-            respond(
-                    exchange,
-                    503,
-                    Map.of(
-                            "error",
-                            Map.of(
-                                    "code",
-                                    "DATABASE_UNAVAILABLE",
-                                    "message",
-                                    "데이터베이스 연결을 확인해주세요.")));
-        } catch (Exception e) {
-            System.err.println("Request failed: " + e.getClass().getSimpleName());
-            respond(
-                    exchange,
-                    500,
-                    Map.of(
-                            "error",
-                            Map.of("code", "INTERNAL_ERROR", "message", "요청을 처리하지 못했습니다.")));
-        } finally {
-            exchange.close();
+  private synchronized void rate(String owner) {
+    long minute = System.currentTimeMillis() / 60000;
+    rates.values().removeIf(v -> v[0] != minute);
+    if (!rates.containsKey(owner) && rates.size() >= 1000)
+      throw new ApiException(429, "RATE_LIMIT", "요청이 많습니다.");
+    var value = rates.computeIfAbsent(owner, k -> new long[] {minute, 0});
+    if (++value[1] > 10) throw new ApiException(429, "RATE_LIMIT", "사진 분석은 기기당 분당 10회까지 가능합니다.");
+  }
+
+  private String owner(HttpExchange e) throws NoSuchAlgorithmException {
+    String auth = e.getRequestHeaders().getFirst("Authorization");
+    if (auth == null || !auth.matches("Bearer [0-9a-f]{64}"))
+      throw new ApiException(401, "UNAUTHORIZED", "64자리 소문자 16진수 기기 토큰이 필요합니다.");
+    return HexFormat.of()
+        .formatHex(
+            MessageDigest.getInstance("SHA-256")
+                .digest(auth.substring(7).getBytes(StandardCharsets.UTF_8)));
+  }
+
+  private void method(HttpExchange e, String expected) {
+    if (!e.getRequestMethod().equals(expected)) {
+      e.getResponseHeaders().set("Allow", expected);
+      throw new ApiException(405, "METHOD_NOT_ALLOWED", expected + " 요청을 사용해주세요.");
+    }
+  }
+
+  private JsonObject body(HttpExchange e, int max, Set<String> allowed) throws IOException {
+    String type = e.getRequestHeaders().getFirst("Content-Type");
+    if (type == null
+        || !type.toLowerCase(Locale.ROOT).split(";", 2)[0].strip().equals("application/json"))
+      throw new ApiException(415, "JSON_REQUIRED", "Content-Type: application/json이 필요합니다.");
+    byte[] bytes = e.getRequestBody().readNBytes(max + 1);
+    if (bytes.length > max) throw new ApiException(413, "BODY_TOO_LARGE", "요청 본문이 너무 큽니다.");
+    try {
+      JsonReader reader =
+          new JsonReader(new StringReader(new String(bytes, StandardCharsets.UTF_8)));
+      reader.setStrictness(Strictness.STRICT);
+      JsonElement value = JsonParser.parseReader(reader);
+      if (reader.peek() != com.google.gson.stream.JsonToken.END_DOCUMENT || !value.isJsonObject())
+        throw new JsonSyntaxException("object required");
+      var obj = value.getAsJsonObject();
+      if (!allowed.containsAll(obj.keySet())) throw new JsonSyntaxException("unknown field");
+      return obj;
+    } catch (JsonParseException | IllegalStateException | IOException ex) {
+      throw new ApiException(400, "INVALID_JSON", "JSON 형식과 필드 이름을 확인해주세요.");
+    }
+  }
+
+  private String string(JsonObject b, String key) {
+    if (!b.has(key)
+        || !b.get(key).isJsonPrimitive()
+        || !b.get(key).getAsJsonPrimitive().isString()
+        || b.get(key).getAsString().isBlank())
+      throw new ApiException(400, "INVALID_FIELD", key + " 문자열이 필요합니다.");
+    return b.get(key).getAsString();
+  }
+
+  private String uuid(String id) {
+    try {
+      if (!UUID.fromString(id).toString().equals(id)) throw new IllegalArgumentException();
+      return id;
+    } catch (IllegalArgumentException ex) {
+      throw new ApiException(400, "INVALID_ID", "올바른 UUID가 필요합니다.");
+    }
+  }
+
+  private Map<String, String> query(HttpExchange e) {
+    Map<String, String> result = new HashMap<>();
+    String raw = e.getRequestURI().getRawQuery();
+    if (raw != null)
+      try {
+        for (String pair : raw.split("&")) {
+          var p = pair.split("=", 2);
+          String k = URLDecoder.decode(p[0], StandardCharsets.UTF_8);
+          if (result.put(k, p.length == 2 ? URLDecoder.decode(p[1], StandardCharsets.UTF_8) : "")
+              != null) throw new IllegalArgumentException();
         }
+      } catch (IllegalArgumentException ex) {
+        throw new ApiException(400, "INVALID_QUERY", "쿼리 형식을 확인해주세요.");
+      }
+    return result;
+  }
+
+  private double number(Map<String, String> q, String key) {
+    try {
+      return Double.parseDouble(q.get(key));
+    } catch (Exception ex) {
+      throw new ApiException(400, "INVALID_QUERY", key + " 숫자가 필요합니다.");
     }
+  }
 
-    private void route(HttpExchange e) throws Exception {
-        String path = e.getRequestURI().getPath();
-        String method = e.getRequestMethod();
-
-        if (path.equals("/health")) {
-            requireMethod(e, "GET");
-            boolean ready = store.healthy();
-            respond(
-                    e,
-                    ready ? 200 : 503,
-                    Map.of(
-                            "status",
-                            ready ? "ok" : "unavailable",
-                            "database",
-                            ready ? "connected" : "unavailable"));
-        } else if (path.equals("/api/v1/categories")) {
-            requireMethod(e, "GET");
-            respond(e, 200, Map.of("items", store.guides()));
-        } else if (path.equals("/api/v1/scans")) {
-            requireMethod(e, "GET", "POST");
-            String owner = owner(e);
-
-            if (method.equals("GET")) {
-                var query = query(e);
-
-                if (!Set.of("limit", "offset").containsAll(query.keySet()))
-                    throw bad("알 수 없는 조회 조건입니다.");
-                respond(
-                        e,
-                        200,
-                        store.scans(
-                                owner,
-                                integer(query, "limit", 50, 1, 100),
-                                integer(query, "offset", 0, 0, 10000)));
-            } else {
-                ScanInput input = parseInput(e);
-                var result = store.save(owner, input);
-                respond(e, result.created() ? 201 : 200, result.scan());
-            }
-        } else if (path.equals("/api/v1/statistics")) {
-            requireMethod(e, "GET");
-            respond(e, 200, store.statistics(owner(e)));
-        } else if (path.startsWith("/api/v1/scans/")) {
-            requireMethod(e, "DELETE");
-            String owner = owner(e);
-            String id = uuid(path.substring("/api/v1/scans/".length()));
-
-            if (!store.delete(owner, id))
-                throw new ApiRequestException(404, "NOT_FOUND", "기록을 찾을 수 없습니다.");
-            respond(e, 200, Map.of("deleted", true));
-        } else {
-            throw new ApiRequestException(404, "NOT_FOUND", "주소를 확인해주세요.");
-        }
+  private int integer(Map<String, String> q, String key, int fallback, int min, int max) {
+    try {
+      int n = q.containsKey(key) ? Integer.parseInt(q.get(key)) : fallback;
+      if (n < min || n > max) throw new NumberFormatException();
+      return n;
+    } catch (NumberFormatException ex) {
+      throw new ApiException(400, "INVALID_QUERY", key + " 범위를 확인해주세요.");
     }
+  }
 
-    private ScanInput parseInput(HttpExchange e) throws IOException {
-        String type = e.getRequestHeaders().getFirst("Content-Type");
-
-        if (type == null || !type.split(";", 2)[0].strip().equalsIgnoreCase("application/json"))
-            throw new ApiRequestException(415, "JSON_REQUIRED", "application/json 형식으로 보내주세요.");
-        byte[] bytes = e.getRequestBody().readNBytes(4097);
-
-        if (bytes.length > 4096)
-            throw new ApiRequestException(413, "BODY_TOO_LARGE", "요청은 4096바이트 이하로 보내주세요.");
-
-        try {
-            JsonReader reader =
-                    new JsonReader(
-                            new InputStreamReader(
-                                    new ByteArrayInputStream(bytes), StandardCharsets.UTF_8));
-            reader.setStrictness(Strictness.STRICT);
-            // Read keys explicitly so duplicate fields and unknown fields cannot be silently
-            // overwritten.
-            reader.beginObject();
-            Set<String> keys = new HashSet<>();
-            JsonObject body = new JsonObject();
-
-            while (reader.hasNext()) {
-                String key = reader.nextName();
-
-                if (!keys.add(key)
-                        || !Set.of("id", "categoryId", "confidence", "modelVersion").contains(key))
-                    throw bad("중복되거나 알 수 없는 필드입니다.");
-                body.add(key, JsonParser.parseReader(reader));
-            }
-            reader.endObject();
-
-            if (reader.peek() != com.google.gson.stream.JsonToken.END_DOCUMENT || keys.size() != 4)
-                throw bad("필수 필드를 확인해주세요.");
-            String id = uuid(string(body, "id"));
-            String category = string(body, "categoryId");
-
-            if (!categoryIds.contains(category))
-                throw bad("지원하지 않는 분류입니다.");
-            var confidenceValue = body.get("confidence");
-
-            if (!confidenceValue.isJsonPrimitive()
-                    || !confidenceValue.getAsJsonPrimitive().isNumber())
-                throw bad("confidence는 숫자여야 합니다.");
-            double confidence = confidenceValue.getAsDouble();
-
-            if (!Double.isFinite(confidence) || confidence < 0.7 || confidence > 1)
-                throw bad("신뢰도 0.7~1의 결과만 저장할 수 있습니다.");
-            String version = string(body, "modelVersion");
-
-            if (!version.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,79}"))
-                throw bad("모델 버전을 확인해주세요.");
-
-            return new ScanInput(id, category, confidence, version);
-        } catch (JsonParseException
-                | IllegalStateException
-                | NumberFormatException
-                | IOException ex) {
-            throw bad("JSON 요청 형식을 확인해주세요.");
-        }
-    }
-
-    private String string(JsonObject body, String key) {
-        var value = body.get(key);
-
-        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString())
-            throw bad(key + "는 문자열이어야 합니다.");
-
-        return value.getAsString();
-    }
-
-    private String uuid(String id) {
-        if (!id.matches(
-                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
-            throw bad("기록 ID는 UUID여야 합니다.");
-
-        return UUID.fromString(id).toString();
-    }
-
-    private String owner(HttpExchange e) throws Exception {
-        String header = e.getRequestHeaders().getFirst("Authorization");
-
-        if (header == null || !header.matches("Bearer [0-9a-f]{64}")) {
-            e.getResponseHeaders().set("WWW-Authenticate", "Bearer");
-            throw new ApiRequestException(401, "TOKEN_REQUIRED", "기기 토큰이 필요합니다.");
-        }
-
-        return HexFormat.of()
-                .formatHex(
-                        MessageDigest.getInstance("SHA-256")
-                                .digest(header.substring(7).getBytes(StandardCharsets.US_ASCII)));
-    }
-
-    private Map<String, String> query(HttpExchange e) {
-        Map<String, String> result = new HashMap<>();
-        String raw = e.getRequestURI().getRawQuery();
-
-        if (raw == null || raw.isEmpty())
-            return result;
-
-        try {
-            for (String part : raw.split("&")) {
-                String[] pair = part.split("=", 2);
-
-                if (pair.length != 2)
-                    throw bad("조회 조건을 확인해주세요.");
-                String key = URLDecoder.decode(pair[0], StandardCharsets.UTF_8);
-
-                if (result.put(key, URLDecoder.decode(pair[1], StandardCharsets.UTF_8)) != null)
-                    throw bad("중복 조회 조건입니다.");
-            }
-        } catch (IllegalArgumentException ex) {
-            throw bad("조회 조건을 확인해주세요.");
-        }
-
-        return result;
-    }
-
-    private int integer(Map<String, String> query, String key, int fallback, int min, int max) {
-        String value = query.get(key);
-
-        if (value == null)
-            return fallback;
-
-        try {
-            if (!value.matches("[0-9]{1,5}"))
-                throw bad("조회 범위를 확인해주세요.");
-            int result = Integer.parseInt(value);
-
-            if (result < min || result > max)
-                throw bad("조회 범위를 확인해주세요.");
-
-            return result;
-        } catch (NumberFormatException ex) {
-            throw bad("조회 범위를 확인해주세요.");
-        }
-    }
-
-    private void requireMethod(HttpExchange e, String... methods) {
-        if (!Arrays.asList(methods).contains(e.getRequestMethod())) {
-            e.getResponseHeaders().set("Allow", String.join(", ", methods));
-            throw new ApiRequestException(405, "METHOD_NOT_ALLOWED", "요청 방식을 확인해주세요.");
-        }
-    }
-
-    private ApiRequestException bad(String message) {
-        return new ApiRequestException(400, "INVALID_REQUEST", message);
-    }
-
-    private void respond(HttpExchange e, int status, Object data) throws IOException {
-        byte[] body = json.toJson(data).getBytes(StandardCharsets.UTF_8);
-        e.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-        e.getResponseHeaders().set("Cache-Control", "no-store");
-        e.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
-        e.sendResponseHeaders(status, body.length);
-        e.getResponseBody().write(body);
-    }
+  private void respond(HttpExchange e, int status, Object value) throws IOException {
+    byte[] bytes = json.toJson(value).getBytes(StandardCharsets.UTF_8);
+    e.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+    e.getResponseHeaders().set("Cache-Control", "no-store");
+    e.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
+    e.sendResponseHeaders(status, bytes.length);
+    e.getResponseBody().write(bytes);
+  }
 }

@@ -29,6 +29,11 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: backend/pom.xml
+      - name: Initialize isolated test database tables
+        run: |
+          sed -e '/^CREATE DATABASE /d' -e '/^USE /d' backend/sql/schema.sql |
+            docker exec -i -e MYSQL_PWD=integration-test-only ${{ job.services.mysql.id }} \
+              mysql --default-character-set=utf8mb4 -uroot ecocheck_test
       - name: Java API and real MySQL tests
         working-directory: backend
         env:
