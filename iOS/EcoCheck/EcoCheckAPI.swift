@@ -6,6 +6,12 @@ struct ScanSubmission: Encodable, Sendable {
     let confirmed: Bool
 }
 
+struct ManualScanSubmission: Encodable, Sendable {
+    let requestId: String
+    let categoryId: String
+    let confirmed: Bool
+}
+
 struct AnalysisResult: Decodable, Identifiable, Sendable {
     let id: String
     let categoryId: String
@@ -28,6 +34,7 @@ struct SavedScan: Codable, Identifiable, Sendable {
     let categoryId: String
     let name: String
     let material: String
+    let source: String?
     let modelVersion: String
     let createdAt: String
 }
@@ -133,6 +140,14 @@ actor EcoCheckAPI {
 
     func save(_ submission: ScanSubmission) async throws -> SavedScan {
         try await request("api/v1/scans", method: "POST", body: JSONEncoder().encode(submission))
+    }
+
+    func categories() async throws -> [RecyclingGuide] {
+        try await request("api/v1/categories")
+    }
+
+    func saveManual(_ submission: ManualScanSubmission) async throws -> SavedScan {
+        try await request("api/v1/scans/manual", method: "POST", body: JSONEncoder().encode(submission))
     }
 
     func history(offset: Int = 0) async throws -> ScanPage {

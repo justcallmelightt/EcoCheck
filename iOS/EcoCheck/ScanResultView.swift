@@ -28,16 +28,16 @@ struct ScanResultView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(isSaving || isSaved)
                     } else {
-                        Text("확실하지 않은 결과라 기록으로 저장할 수 없어요. 다시 촬영하거나 기본 안내를 확인해주세요.")
+                        Text("확실하지 않은 결과라 AI 기록으로 저장하지 않아요. 재질을 직접 선택해 안내를 확인할 수 있어요.")
                             .font(.callout).foregroundStyle(.secondary)
-                        NavigationLink("기본 분리배출 안내 보기") { GuideListView() }
+                        NavigationLink("목록에서 직접 선택하기") { ManualMaterialSelectionView() }
                     }
                     if isSaving { ProgressView("저장 중…") }
                 } else if let analysisError {
                     Label("분석을 완료하지 못했어요", systemImage: "info.circle").font(.headline)
                     Text(analysisError)
                     Button("다시 분석") { startAnalysis() }.disabled(isAnalyzing)
-                    NavigationLink("기본 분리배출 안내 보기") { GuideListView() }
+                    NavigationLink("목록에서 직접 선택하기") { ManualMaterialSelectionView() }
                 } else if isAnalyzing {
                     ProgressView("사진을 분석 중…")
                 } else {
@@ -45,7 +45,7 @@ struct ScanResultView: View {
                         .font(.callout)
                     Button("동의하고 사진 분석") { startAnalysis() }
                         .buttonStyle(.borderedProminent)
-                    NavigationLink("사진 전송 없이 기본 안내 보기") { GuideListView() }
+                    NavigationLink("사진 전송 없이 분리배출 안내 찾기") { ManualMaterialSelectionView() }
                 }
                 if let saveMessage { Text(saveMessage).font(.callout).foregroundStyle(.secondary) }
                 Text("서버에는 사진을 저장하지 않아요. AI 판단은 틀릴 수 있으니 실제 배출 전 안내를 확인해주세요.")
@@ -113,6 +113,294 @@ struct GuideSteps: View {
             }
             Text(guide.note).font(.footnote).foregroundStyle(.secondary)
         }
+    }
+}
+
+private enum ManualMaterial: String, CaseIterable, Identifiable {
+    case petBottle, can, paper, plastic, glass, other
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .petBottle: "페트병"
+        case .can: "캔"
+        case .paper: "종이"
+        case .plastic: "플라스틱"
+        case .glass: "유리"
+        case .other: "기타"
+        }
+    }
+    var imageName: String? {
+        switch self {
+        case .petBottle: "ManualPetBottle"
+        case .can: "ManualCan"
+        case .paper: "ManualPaper"
+        case .plastic: "ManualPlastic"
+        case .glass: "ManualGlass"
+        case .other: nil
+        }
+    }
+    var route: ManualRoute {
+        switch self {
+        case .petBottle: .guide("pet_bottle")
+        case .can: .can
+        case .paper: .guide("paper")
+        case .plastic: .guide("plastic_container")
+        case .glass: .guide("glass_bottle")
+        case .other: .other
+        }
+    }
+}
+
+private enum ManualRoute: Hashable {
+    case guide(String)
+    case can
+    case other
+}
+
+private struct ManualMaterialSelectionView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var guides = (try? RecyclingGuide.load()) ?? []
+    @State private var selected: ManualMaterial?
+    @State private var showingNext = false
+
+    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    private let background = Color(red: 245/255, green: 247/255, blue: 249/255)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("어떤 재질인가요?")
+                        .font(.custom("Pretendard-Bold", size: 26))
+                    Text("AI가 판단하기 어려웠어요.\n가장 가까운 재질을 골라주세요.")
+                        .font(.custom("Pretendard-Regular", size: 15))
+                        .lineSpacing(5)
+                        .foregroundStyle(Color(red: 103/255, green: 103/255, blue: 103/255))
+
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(ManualMaterial.allCases) { material in
+                            materialCard(material)
+                        }
+                    }
+                    .padding(.top, 20)
+
+                    Text("찾는 품목이 없거나 재질을 모르겠다면 지역 안내를 확인해주세요.")
+                        .font(.custom("Pretendard-Medium", size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 6)
+                }
+                .padding(.horizontal, 29)
+                .padding(.top, 24)
+                .padding(.bottom, 20)
+            }
+
+            Button {
+                guard selected != nil else { return }
+                showingNext = true
+            } label: {
+                HStack {
+                    Spacer()
+                    Text("다음")
+                        .font(.custom("Pretendard-SemiBold", size: 18))
+                    Spacer()
+                }
+                .overlay(alignment: .trailing) {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Color.white.opacity(0.16), in: Circle())
+                        .padding(.trailing, 15)
+                }
+                .foregroundStyle(.white)
+                .frame(height: 59)
+                .background(Color(red: 31/255, green: 39/255, blue: 36/255), in: RoundedRectangle(cornerRadius: 25))
+            }
+            .buttonStyle(.plain)
+            .disabled(selected == nil)
+            .opacity(selected == nil ? 0.45 : 1)
+            .padding(.horizontal, 29)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+        }
+        .background(background.ignoresSafeArea())
+        .navigationTitle("재질 선택")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $showingNext) {
+            if let selected {
+                switch selected.route {
+                case .guide(let id):
+                    if let guide = guides.first(where: { $0.id == id }) {
+                        ManualGuideReviewView(guide: guide)
+                    } else {
+                        MissingGuideView()
+                    }
+                case .can:
+                    ManualCanSelectionView(guides: guides)
+                case .other:
+                    ManualOtherView()
+                }
+            }
+        }
+        .task {
+            if let remote = try? await EcoCheckAPI.shared.categories(), !remote.isEmpty {
+                guides = remote
+            }
+        }
+    }
+
+    private func materialCard(_ material: ManualMaterial) -> some View {
+        let isSelected = selected == material
+        return Button {
+            withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.28, dampingFraction: 1)) {
+                selected = material
+            }
+        } label: {
+            VStack(spacing: 8) {
+                Group {
+                    if let imageName = material.imageName {
+                        Image(imageName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80, height: 80)
+                            .accessibilityHidden(true)
+                    } else {
+                        Text("?")
+                            .font(.custom("Pretendard-Bold", size: 36))
+                            .foregroundStyle(Color(red: 176/255, green: 176/255, blue: 176/255))
+                            .frame(width: 80, height: 80)
+                            .background(Color(red: 244/255, green: 244/255, blue: 244/255), in: Circle())
+                    }
+                }
+                Text(material.title)
+                    .font(.custom("Pretendard-Bold", size: 16))
+                    .foregroundStyle(.black)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 144)
+            .background(isSelected ? Color(red: 228/255, green: 253/255, blue: 212/255) : .white,
+                        in: RoundedRectangle(cornerRadius: 20))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(isSelected ? Color(red: 207/255, green: 207/255, blue: 207/255) : Color(red: 235/255, green: 235/255, blue: 235/255),
+                            lineWidth: isSelected ? 2 : 1)
+            }
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 24, height: 24)
+                        .background(Color(red: 109/255, green: 133/255, blue: 124/255), in: Circle())
+                        .padding(8)
+                }
+            }
+        }
+        .buttonStyle(ManualChoiceButtonStyle())
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private struct ManualChoiceButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(reduceMotion ? nil : .interactiveSpring(response: 0.22, dampingFraction: 1), value: configuration.isPressed)
+    }
+}
+
+private struct ManualCanSelectionView: View {
+    let guides: [RecyclingGuide]
+
+    var body: some View {
+        List {
+            Section("캔의 종류를 골라주세요") {
+                guideLink("aluminum_can")
+                guideLink("steel_can")
+            }
+        }
+        .navigationTitle("캔 종류 선택")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder private func guideLink(_ id: String) -> some View {
+        if let guide = guides.first(where: { $0.id == id }) {
+            NavigationLink(guide.name) { ManualGuideReviewView(guide: guide) }
+        } else {
+            Text("안내를 불러오지 못했어요.").foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct ManualGuideReviewView: View {
+    let guide: RecyclingGuide
+    @State private var requestId = UUID().uuidString.lowercased()
+    @State private var isSaving = false
+    @State private var isSaved = false
+    @State private var saveMessage: String?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(guide.name).font(.custom("Pretendard-Bold", size: 28))
+                    Text(guide.material).font(.custom("Pretendard-SemiBold", size: 18)).foregroundStyle(.secondary)
+                }
+                GuideSteps(guide: guide)
+                Button(isSaved ? "기록 저장 완료" : "안내 확인 후 기록 저장") {
+                    Task { await saveManualRecord() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 31/255, green: 39/255, blue: 36/255))
+                .disabled(isSaving || isSaved)
+                if isSaving { ProgressView("저장 중…") }
+                if let saveMessage { Text(saveMessage).font(.callout).foregroundStyle(.secondary) }
+                Text("기록은 재질을 선택한 내용이며, 실제 배출 완료를 뜻하지 않아요.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            .padding(24)
+        }
+        .navigationTitle("분리배출 방법")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @MainActor private func saveManualRecord() async {
+        guard !isSaving && !isSaved else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            let submission = ManualScanSubmission(requestId: requestId, categoryId: guide.id, confirmed: true)
+            _ = try await EcoCheckAPI.shared.saveManual(submission)
+            isSaved = true
+            saveMessage = "직접 선택한 분류를 기록했어요."
+        } catch {
+            saveMessage = "저장하지 못했어요. \(error.localizedDescription) 같은 요청 ID로 재시도할 수 있어요."
+        }
+    }
+}
+
+private struct ManualOtherView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "정확한 분류 안내가 없어요",
+            systemImage: "questionmark.circle",
+            description: Text("재질을 추측해 기록하지 않아요. 지역의 분리배출 안내를 확인한 뒤 배출해주세요."))
+            .navigationTitle("기타 품목")
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MissingGuideView: View {
+    var body: some View {
+        ContentUnavailableView("안내를 찾지 못했어요", systemImage: "info.circle")
+            .navigationTitle("분리배출 방법")
+            .navigationBarTitleDisplayMode(.inline)
     }
 }
 

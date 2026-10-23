@@ -20,8 +20,8 @@
 
 ## 현재 개발 구조
 
-- **iOS (SwiftUI)**: 사진 촬영·선택, 서버 분석 결과와 분리배출 안내, 기록 조회·삭제, 네이버 지도 화면을 제공합니다. Core ML/Vision 코드는 남아 있지만 학습 모델이 없어 현재 스캔 흐름에서는 사용하지 않습니다.
-- **Java (JDK HttpServer + JDBC, Spring Boot 미사용)**: Gemini 사진 분석, 기록 저장·조회·삭제, 주변 쓰레기통 검색을 담당합니다.
+- **iOS (SwiftUI)**: 사진 촬영·선택, 서버 분석과 분리배출 안내, AI 실패 시 재질 직접 선택·기록 저장, 기록 조회·삭제, Apple MapKit 화면을 제공합니다. Core ML/Vision 코드는 남아 있지만 학습 모델이 없어 현재 스캔 흐름에서는 사용하지 않습니다.
+- **Java (JDK HttpServer + JDBC, Spring Boot 미사용)**: Gemini 사진 분석, AI/수동 분류 기록 저장·조회·삭제, 주변 쓰레기통 검색을 담당합니다.
 - **MySQL**: 확인한 스캔 기록과 쓰레기통 데이터를 저장합니다. 사진 자체는 서버나 DB에 저장하지 않습니다.
 
 `아이폰 사진 → 전송 동의 → Java 서버 → Gemini 분석 → 사용자 확인 → Java 서버 → MySQL 기록 저장`
@@ -48,6 +48,7 @@ Workbench는 DB 접속·SQL 실행 도구이고 실제 데이터는 MySQL Server
 ## 제공 기능
 
 - Gemini 사진 재질 분류와 검토용 공통 분리배출 안내
+- AI가 판단하기 어려운 경우 Figma의 재질 선택 흐름으로 안내 확인 및 수동 분류 기록 저장
 - 불명확/미지원 물체 처리, JPEG/PNG 검증, 요청 크기·호출 시간 제한
 - 사용자 확인 후 기록 저장, 기기 토큰별 기록 조회·삭제·총 개수
 - 서울시 가로휴지통 원본 XLSX와 6,849개 변환 JSON
@@ -74,7 +75,7 @@ MySQL Workbench → SQL 실행·데이터 확인
 | API 주소, 입력 검사, 응답 코드 | EcoCheckHttpServer.java | HTTP 처리와 기능 로직 분리 |
 | 분석 결과 사용·보관·저장 조건 | AnalysisService.java | 확실하지 않은 결과와 임의 기록 저장 방지 |
 | AI 요청·프롬프트·JSON 응답 | GeminiClient.java | AI 공급자 변경의 영향을 한 파일로 제한 |
-| 분리배출 방법 문구 | shared/recycling-guides.json | 문구 변경 시 AI 코드 수정 불필요 |
+| 분리배출 방법 문구·분류 | shared/recycling-guides.json | 앱과 서버가 같은 안내를 사용 |
 | 거리·검색 반경·정렬 | BinService.java | 지도 로직을 DB/HTTP와 독립적으로 검증 |
 | SQL과 테이블 접근 | MySqlRepository.java | Workbench에서 보는 구조와 SQL을 대응 |
 | 네이버 인증·주소 변환 | NaverMapClient.java | 키를 앱에 넣지 않고 서버에서 사용 |

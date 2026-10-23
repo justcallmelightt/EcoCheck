@@ -135,6 +135,52 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void manualSelectionUsesCanonicalGuideAndSavesOnce() throws Exception {
+    var categories = call("GET", "/api/v1/categories", null, null);
+    assertEquals(200, categories.statusCode());
+    assertEquals(7, JsonParser.parseString(categories.body()).getAsJsonArray().size());
+
+    String requestId = UUID.randomUUID().toString();
+    String body = gson.toJson(Map.of("requestId", requestId, "categoryId", "plastic_container", "confirmed", true));
+    var saved = call("POST", "/api/v1/scans/manual", body, token);
+    assertEquals(200, saved.statusCode(), saved.body());
+    var record = JsonParser.parseString(saved.body()).getAsJsonObject();
+    assertEquals("plastic_container", record.get("categoryId").getAsString());
+    assertEquals("플라스틱 용기", record.get("name").getAsString());
+    assertEquals("manual", record.get("source").getAsString());
+    assertEquals("manual-v1", record.get("modelVersion").getAsString());
+
+    assertEquals(200, call("POST", "/api/v1/scans/manual", body, token).statusCode());
+    assertEquals(
+        1,
+        JsonParser.parseString(call("GET", "/api/v1/scans", null, token).body())
+            .getAsJsonObject()
+            .get("total")
+            .getAsInt());
+  }
+
+  @Test
+  void manualSelectionRejectsUnknownCategoriesAndMissingConfirmation() throws Exception {
+    String requestId = UUID.randomUUID().toString();
+    assertEquals(
+        400,
+        call(
+                "POST",
+                "/api/v1/scans/manual",
+                gson.toJson(Map.of("requestId", requestId, "categoryId", "unknown", "confirmed", true)),
+                token)
+            .statusCode());
+    assertEquals(
+        400,
+        call(
+                "POST",
+                "/api/v1/scans/manual",
+                gson.toJson(Map.of("requestId", requestId, "categoryId", "paper", "confirmed", false)),
+                token)
+            .statusCode());
+  }
+
+  @Test
   void uncertainCannotSave() throws Exception {
     prediction =
         "{\"categoryId\":\"unknown\",\"needsConfirmation\":true,\"reason\":\"재질을 확인할 수 없습니다.\"}";

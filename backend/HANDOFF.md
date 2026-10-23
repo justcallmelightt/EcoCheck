@@ -6,7 +6,7 @@ GitHub 최신 main에는 iOS의 분석·지도 API 연결 코드가 추가되어
 
 ## 현재 담당 범위
 
-- Java/MySQL: 분석 결과 보관·기록 저장/조회/삭제, 분리배출 안내, 주변 쓰레기통 조회.
+- Java/MySQL: 분석 결과 보관·AI/수동 분류 기록 저장/조회/삭제, 분리배출 안내, 주변 쓰레기통 조회.
 - 친구: Gemini 연동과 프론트 화면, 네이버 지도 SDK 및 지도 키 준비.
 - Google 로그인: 친구가 Supabase로 담당. 별도 이메일 회원가입/비밀번호 로그인은 만들지 않습니다.
 - 실제 Gemini 서비스 사용은 운영자 및 앱 대상 사용자의 이용 조건을 충족하는지 먼저 확인해야 합니다. 이 문서의 계약 테스트는 로컬 대역 서버로만 수행했습니다.
@@ -54,6 +54,7 @@ Content-Type: application/json
 | 수동 재질 선택/안내 | GET /api/v1/categories | id, name, material, steps, note |
 | 사진 분석 | POST /api/v1/analyze | id, categoryId, name, material, steps, note, reason, saveAllowed, source, modelVersion |
 | 결과 저장 | POST /api/v1/scans | 저장된 id, categoryId, name, material, modelVersion, createdAt |
+| 수동 분류 저장 | POST /api/v1/scans/manual | saved record; `source=manual` |
 | 기록 목록 | GET /api/v1/scans?limit=50&offset=0 | items, total, limit, offset |
 | 기록 삭제 | DELETE /api/v1/scans/{id} | deleted |
 | 기록 수 | GET /api/v1/statistics | totalScans |
@@ -77,7 +78,7 @@ JPEG/PNG 최대 4MiB·2500만 픽셀. HEIC는 앱에서 변환합니다. Gemini�
 - 분석 응답의 필드 이름은 `id`, 저장 요청에서는 `analysisId`입니다.
 - 같은 기기의 결과만 저장할 수 있으며 임시 결과는 30분 뒤 또는 서버 재시작 시 만료됩니다.
 - saveAllowed=false인 결과는 저장할 수 없습니다. 동일 ID로 재요청하면 중복 저장하지 않습니다.
-- 수동 재질 선택은 안내만 지원합니다. 수동 기록 저장 API는 아직 없습니다.
+- 수동 재질 선택은 `/api/v1/categories`에서 받은 안내를 표시하고 사용자가 확인한 경우에만 `/api/v1/scans/manual`로 저장합니다. 동일 요청 재시도에는 같은 `requestId`를 사용합니다.
 - 날짜는 UTC ISO 8601이며 화면에서 현지 시간으로 표시합니다.
 - 기록 수는 분리배출 완료 횟수나 탄소 절감량이 아닙니다.
 

@@ -12,6 +12,8 @@ struct HistoryView: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(scan.name).font(.headline)
                         Text(scan.material)
+                        Text(scan.source == "manual" ? "직접 선택" : "AI 분석")
+                            .font(.caption).foregroundStyle(.secondary)
                         Text(scan.createdAt).font(.caption).foregroundStyle(.secondary)
                     }
                     .swipeActions {

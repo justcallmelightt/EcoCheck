@@ -8,10 +8,10 @@ Mac/Xcode 16 이상에서 `EcoCheck.xcodeproj`를 엽니다. iOS 17 이상을 �
 
 1. 스캔을 누르고 카메라나 앨범에서 사진을 가져옵니다.
 2. 결과 화면에서 전송 안내를 읽고 동의하면 사진을 4MiB 이하 JPEG로 줄여 `/api/v1/analyze`에 보냅니다. 전송하지 않고 기본 안내를 볼 수도 있습니다.
-3. 서버의 재질·분리배출 안내·판단 근거를 보여줍니다. 저장이 허용된 결과만 사용자가 확인한 뒤 `analysisId`로 `/api/v1/scans`에 저장합니다.
+3. 서버의 재질·분리배출 안내·판단 근거를 보여줍니다. 저장이 허용된 결과는 사용자가 확인한 뒤 `analysisId`로 `/api/v1/scans`에 저장합니다. AI가 실패하거나 불확실하면 재질을 직접 고르고 `/api/v1/scans/manual`로 저장할 수 있습니다.
 4. **기록**에서 조회·스와이프 삭제, **설정**에서 서버 주소를 지정합니다.
 
-서버가 없거나 분석을 원하지 않을 때 **기본 분리배출 안내 보기**에서 수동으로 안내를 확인할 수 있습니다. 수동 선택은 AI 결과로 저장하지 않습니다. 지도 탭은 Apple MapKit 지도를 표시하고 `/api/v1/bins`에서 주변 쓰레기통을 가져옵니다. 주소를 좌표로 변환·적재해야 마커가 나타납니다. 홈의 CO₂·포인트·리사이클 0 표시는 기존 디자인이며 실측·적립 기능이나 기록 개수와 연결하지 않았습니다.
+사진을 전송하지 않거나 AI가 확실히 분류하지 못했을 때 Figma의 재질 선택 화면에서 페트병·캔·종이·플라스틱·유리·기타를 고를 수 있습니다. 캔은 철·알루미늄을 추가 선택하고, 기타는 지역 안내를 확인하도록 하며 분류 기록으로 저장하지 않습니다. 저장 기록은 사용자가 선택한 재질이며 실제 배출 완료 증명이 아닙니다. 지도 탭은 Apple MapKit을 표시하고 `/api/v1/bins`에서 주변 쓰레기통을 가져옵니다. 주소를 좌표로 변환·적재해야 마커가 나타납니다. 홈의 CO₂·포인트·리사이클 표시는 기존 시안이며 실측·적립 기능과 연결하지 않았습니다.
 
 ## 기존 Core ML 코드
 
@@ -20,7 +20,7 @@ Mac/Xcode 16 이상에서 `EcoCheck.xcodeproj`를 엽니다. iOS 17 이상을 �
 향후 기기 내 분석을 선택 기능으로 되살리려면:
 
 1. 수집·검토한 이미지로 **Core ML 이미지 분류 모델**을 학습하거나 변환하세요. 학습 데이터가 없는 상태이므로 이 저장소는 학습 완료 모델을 제공하지 않습니다. Teachable Machine의 `model.json`은 이 코드에 바로 넣을 수 없습니다.
-2. 클래스 이름을 `shared/recycling-guides.json`의 ID와 일치시키세요. 현재는 `pet_bottle`, `aluminum_can`, `steel_can`, `glass_bottle`, `cardboard` 5개입니다. 계획한 15종으로 확장할 때 공통 JSON·학습 데이터·서버 테스트를 함께 수정하세요.
+2. 클래스 이름을 `shared/recycling-guides.json`의 ID와 일치시키세요. 현재 공통 안내는 7개이며 `unknown`은 저장 불가 분류입니다. 계획한 학교 품목 15종으로 확장할 때 공통 JSON·학습 데이터·서버 테스트를 함께 수정하세요.
 3. `WasteClassifier.mlmodel` 또는 `WasteClassifier.mlpackage`를 Xcode의 EcoCheck 그룹에 추가하고 **Target Membership: EcoCheck**를 선택하세요. 모델이 빌드 단계에서 컴파일되어 앱 번들의 `WasteClassifier.mlmodelc`로 포함되는지 확인합니다.
 4. 모델 메타데이터 **Version**에 `1.0.0`처럼 영문·숫자로 시작하는 영문·숫자·`.`·`_`·`-` 80자 이내 값을 입력하세요. 버전이 없으면 분석을 중단합니다.
 5. 입력은 이미지, 출력은 Vision의 `VNClassificationObservation`으로 해석할 수 있는 classifier여야 합니다. 전처리는 `.centerCrop`과 일치해야 합니다. 다른 전처리로 학습했다면 코드를 조정하세요.
@@ -45,7 +45,7 @@ Mac/Xcode 16 이상에서 `EcoCheck.xcodeproj`를 엽니다. iOS 17 이상을 �
 
 - `ContentView.swift`, `CameraCapture.swift`: 홈과 사진 입력
 - `OnDeviceClassifier.swift`: 현재 화면에서 호출하지 않는 기기 내 모델 실험 코드
-- `ScanResultView.swift`: 사진 전송 선택·서버 분석 결과·수동 안내·저장
+- `ScanResultView.swift`: 사진 전송 선택·서버 분석 결과·재질 직접 선택·AI/수동 기록 저장
 - `BinMapView.swift`: 현재 위치와 서울시 쓰레기통 조회·Apple MapKit 지도 마커
 - `EcoCheckAPI.swift`: 서버 통신·Keychain 토큰
 - `HistoryView.swift`: 기록 조회·삭제·서버 설정

@@ -5,7 +5,7 @@
 | 방식 | 경로 | 기능 |
 |---|---|---|
 | GET | /health | DB 테이블 접근 확인, 키 설정 여부. 외부 API 호출은 수행하지 않음 |
-| GET | /api/v1/categories | 공통 분리배출 안내 5종 |
+| GET | /api/v1/categories | 공통 분리배출 안내 7종 |
 | GET | /api/v1/map-config | 지도 SDK의 공개 Client ID |
 | GET | /api/v1/bins?lat=37.5665&lng=126.978&radius=1000&type=all | 주변 쓰레기통 최대 100개, 거리순 |
 | POST | /api/v1/analyze | Gemini 사진 분석, DB 저장 없음 |
@@ -56,7 +56,7 @@ Content-Type은 application/json. JPEG/PNG 최대 4MiB, 최대 2500만 픽셀. i
 
 서버에 보관한 동일 기기의 분석 결과만 저장할 수 있습니다. 결과 유효시간 30분. 재시도는 같은 analysisId를 사용하며 DB에는 한 건만 저장됩니다. 분석 결과를 서버가 재시작 후에는 기억하지 못하므로 저장 실패 시 먼저 기록을 조회한 뒤 필요하면 다시 분석합니다. 기록을 삭제하면 임시 분석도 제거해 같은 결과로 되살릴 수 없게 합니다.
 
-저장 응답은 `id,categoryId,name,material,modelVersion,createdAt`입니다. 생성 시각은 서버 UTC(ISO 8601)입니다. 조회는 `{items:[...],total:1,limit:50,offset:0}`. limit 1~100, offset 0~10000.
+저장 응답은 `id,categoryId,name,material,source,modelVersion,createdAt`입니다. 생성 시각은 서버 UTC(ISO 8601)입니다. 조회는 `{items:[...],total:1,limit:50,offset:0}`. limit 1~100, offset 0~10000.
 
 ### 직접 선택한 분류 기록
 
