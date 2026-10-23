@@ -15,7 +15,7 @@ final class ExternalJsonClient {
 
   JsonObject send(HttpRequest request, String provider) {
     try {
-      var response = client.send(request, info -> new LimitedBodySubscriber());
+      var response = sendWithRetry(request, provider);
       byte[] bytes = response.body();
       if (response.statusCode() != 200) {
         int status = response.statusCode();
@@ -23,6 +23,9 @@ final class ExternalJsonClient {
           throw new ApiException(503, provider + "_RATE_LIMIT", "외부 API 사용량 한도를 확인해주세요.");
         if (status == 401 || status == 403)
           throw new ApiException(503, provider + "_AUTH_FAILED", "외부 API 키와 서비스 권한을 확인해주세요.");
+        if (status == 503)
+          throw new ApiException(503, provider + "_UNAVAILABLE",
+              "AI 분석 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도하거나 기본 분리배출 안내를 확인해주세요.");
         throw new ApiException(502, provider + "_HTTP_ERROR", "외부 API 응답 오류 (HTTP " + status + ")");
       }
       if (bytes.length > 1_048_576)
@@ -38,6 +41,26 @@ final class ExternalJsonClient {
       throw new ApiException(502, provider + "_CONNECTION_FAILED", "외부 API 네트워크 연결을 확인해주세요.");
     } catch (JsonParseException | IllegalStateException e) {
       throw new ApiException(502, provider + "_INVALID_RESPONSE", "외부 API 응답 형식이 올바르지 않습니다.");
+    }
+  }
+
+  /** 명시적으로 받은 Gemini 503만 최대 두 번 재시도합니다. 전체 시간은 원래 제한을 유지합니다. */
+  private HttpResponse<byte[]> sendWithRetry(HttpRequest request, String provider)
+      throws IOException, InterruptedException {
+    long budget = request.timeout().orElse(Duration.ofSeconds(30)).toNanos();
+    long started = System.nanoTime();
+    for (int attempt = 0; ; attempt++) {
+      long remaining = budget - (System.nanoTime() - started);
+      if (remaining <= 0) throw new HttpTimeoutException("External request deadline exceeded");
+      var bounded = HttpRequest.newBuilder(request, (name, value) -> true)
+          .timeout(Duration.ofNanos(remaining)).build();
+      var response = client.send(bounded, info -> new LimitedBodySubscriber());
+      if (!provider.equals("GEMINI") || response.statusCode() != 503 || attempt >= 2)
+        return response;
+      long delayMillis = 500L << attempt;
+      if (budget - (System.nanoTime() - started) <= Duration.ofMillis(delayMillis + 100).toNanos())
+        return response;
+      Thread.sleep(delayMillis);
     }
   }
 
