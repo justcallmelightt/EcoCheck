@@ -1,3 +1,8 @@
+![Swift](https://img.shields.io/badge/Swift-F05138?style=for-the-badge&logo=swift&logoColor=white)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-007ACC?style=for-the-badge&logo=swift&logoColor=white)
+![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+
 # EcoCheck
 
 스마트폰 카메라로 쓰레기를 스캔하면 인공지능이 물체를 인식하여, 재질별 분리배출 방법과 세척/라벨 제거 등의 구체적인 행동 지침을 즉각적으로 알려주는 사용자 맞춤형 에코 가이드 서비스.
