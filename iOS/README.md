@@ -11,7 +11,7 @@ Mac/Xcode 16 이상에서 `EcoCheck.xcodeproj`를 엽니다. iOS 17 이상을 �
 3. 서버의 재질·분리배출 안내·판단 근거를 보여줍니다. 저장이 허용된 결과만 사용자가 확인한 뒤 `analysisId`로 `/api/v1/scans`에 저장합니다.
 4. **기록**에서 조회·스와이프 삭제, **설정**에서 서버 주소를 지정합니다.
 
-서버가 없거나 분석을 원하지 않을 때 **기본 분리배출 안내 보기**에서 수동으로 안내를 확인할 수 있습니다. 수동 선택은 AI 결과로 저장하지 않습니다. 지도 탭은 네이버 지도 SDK와 `/api/v1/bins`를 연결했습니다. 서버에 네이버 Client ID를 설정하고 주소를 좌표로 변환·적재해야 마커가 나타납니다. 홈의 CO₂·포인트·리사이클 0 표시는 기존 디자인이며 실측·적립 기능이나 기록 개수와 연결하지 않았습니다.
+서버가 없거나 분석을 원하지 않을 때 **기본 분리배출 안내 보기**에서 수동으로 안내를 확인할 수 있습니다. 수동 선택은 AI 결과로 저장하지 않습니다. 지도 탭은 Apple MapKit 지도를 표시하고 `/api/v1/bins`에서 주변 쓰레기통을 가져옵니다. 주소를 좌표로 변환·적재해야 마커가 나타납니다. 홈의 CO₂·포인트·리사이클 0 표시는 기존 디자인이며 실측·적립 기능이나 기록 개수와 연결하지 않았습니다.
 
 ## 기존 Core ML 코드
 
@@ -37,16 +37,16 @@ Mac/Xcode 16 이상에서 `EcoCheck.xcodeproj`를 엽니다. iOS 17 이상을 �
 - Debug의 `Info-Debug.plist`에서만 개발용 HTTP를 허용합니다. 앱 URL 검증은 loopback·사설 IPv4만 받습니다. Release는 ATS 예외가 없고 HTTPS만 허용합니다.
 - 256비트 난수 기기 토큰은 Keychain에 저장합니다. 로그인·기기 간 동기화는 아직 없습니다. 사진 분석과 기록 조회에는 서버가 필요하지만 기본 안내는 오프라인에서도 볼 수 있습니다.
 
-## 네이버 지도 준비
+## 지도와 쓰레기통 데이터
 
-Xcode는 공식 `SPM-NMapsMap` 3.24.0 패키지를 내려받습니다. 네이버 클라우드에서 **Mobile Dynamic Map**을 활성화하고 앱 Bundle ID `com.justcallmelight.EcoCheckLearning`을 등록한 뒤, 서버 `.env`의 `NAVER_MAP_CLIENT_ID`를 설정하세요. Geocoding용 Secret은 서버에만 둡니다. 지도 화면은 서버 `/api/v1/map-config`에서 공개 Client ID를 받고, 현재 위치의 1km 이내 시설물을 `/api/v1/bins`에서 가져옵니다. 위치를 사용할 수 없으면 서울시청을 기준으로 조회합니다. 원본 6,849건에는 좌표가 없어 서버에서 주소 변환·좌표 적재를 마치기 전에는 빈 지도 마커가 정상입니다.
+지도는 Apple MapKit을 사용하므로 별도 지도 SDK 키가 필요하지 않습니다. 앱은 현재 위치 또는 위치 권한이 없을 때 서울시청을 기준으로 `/api/v1/bins`에 주변 1km 쓰레기통을 조회합니다. 원본 6,849건에는 좌표가 없어 서버에서 주소 변환·좌표 적재를 마치기 전에는 빈 지도 마커가 정상입니다.
 
 ## 파일과 검증
 
 - `ContentView.swift`, `CameraCapture.swift`: 홈과 사진 입력
 - `OnDeviceClassifier.swift`: 현재 화면에서 호출하지 않는 기기 내 모델 실험 코드
 - `ScanResultView.swift`: 사진 전송 선택·서버 분석 결과·수동 안내·저장
-- `BinMapView.swift`: 현재 위치와 서울시 쓰레기통 조회·네이버 지도 마커
+- `BinMapView.swift`: 현재 위치와 서울시 쓰레기통 조회·Apple MapKit 지도 마커
 - `EcoCheckAPI.swift`: 서버 통신·Keychain 토큰
 - `HistoryView.swift`: 기록 조회·삭제·서버 설정
 - `shared/recycling-guides.json`(저장소 루트 기준): 앱 번들과 Java 서버가 함께 쓰는 안내 원본

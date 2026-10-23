@@ -1,5 +1,5 @@
 import CoreLocation
-import NMapsMap
+import MapKit
 import SwiftUI
 
 @MainActor
@@ -41,7 +41,6 @@ final class MapLocation: NSObject, ObservableObject, @preconcurrency CLLocationM
 
 struct BinMapView: View {
     @StateObject private var location = MapLocation()
-    @State private var clientId: String?
     @State private var bins: NearbyBins?
     @State private var errorMessage: String?
     @State private var selectedType = "all"
@@ -59,14 +58,14 @@ struct BinMapView: View {
             .pickerStyle(.segmented)
             .padding()
 
-            if let clientId {
-                NaverBinMap(clientId: clientId, center: center, bins: bins?.items ?? [])
-            } else if loading {
-                ProgressView("지도를 준비 중…").frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ContentUnavailableView("지도를 표시할 수 없어요", systemImage: "map",
-                    description: Text(errorMessage ?? "서버에서 네이버 지도 Client ID를 확인해주세요."))
-            }
+            OpenStreetMapView(center: center, bins: bins?.items ?? [])
+                .overlay {
+                    if loading && bins == nil {
+                        ProgressView("주변 쓰레기통을 불러오는 중…")
+                            .padding()
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 8) {
                 if loading { ProgressView("주변 쓰레기통 조회 중…") }
@@ -116,47 +115,47 @@ struct BinMapView: View {
             }
         }
         do {
-            if clientId == nil {
-                let config = try await EcoCheckAPI.shared.mapConfiguration()
-                guard !config.clientId.isEmpty else {
-                    throw APIError.server("서버에 네이버 지도 Client ID가 설정되지 않았어요.")
-                }
-                clientId = config.clientId
-            }
             bins = try await EcoCheckAPI.shared.nearbyBins(
                 latitude: center.latitude, longitude: center.longitude, type: selectedType)
         } catch { errorMessage = error.localizedDescription }
     }
 }
 
-private struct NaverBinMap: UIViewRepresentable {
-    let clientId: String
+private struct OpenStreetMapView: UIViewRepresentable {
     let center: CLLocationCoordinate2D
     let bins: [NearbyBin]
 
-    final class Coordinator {
-        var markers: [NMFMarker] = []
-    }
-
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeUIView(context: Context) -> NMFMapView {
-        NMFAuthManager.shared().client = NMFNcpKeyClient(ncpKeyId: clientId, beta: false)
-        let map = NMFMapView(frame: .zero)
-        map.moveCamera(NMFCameraUpdate(scrollTo: NMGLatLng(lat: center.latitude, lng: center.longitude)))
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        var annotations: [MKPointAnnotation] = []
+    }
+
+    func makeUIView(context: Context) -> MKMapView {
+        let map = MKMapView(frame: .zero)
+        map.delegate = context.coordinator
+        map.mapType = .standard
+        map.setRegion(region, animated: false)
         return map
     }
 
-    func updateUIView(_ map: NMFMapView, context: Context) {
-        for marker in context.coordinator.markers { marker.mapView = nil }
-        context.coordinator.markers.removeAll()
+    func updateUIView(_ map: MKMapView, context: Context) {
+        map.setRegion(region, animated: true)
+        map.removeAnnotations(context.coordinator.annotations)
+        context.coordinator.annotations.removeAll()
         for item in bins {
             guard let lat = item.bin.latitude, let lng = item.bin.longitude else { continue }
-            let marker = NMFMarker(position: NMGLatLng(lat: lat, lng: lng))
-            marker.captionText = item.bin.address
-            marker.mapView = map
-            context.coordinator.markers.append(marker)
+            let annotation = MKPointAnnotation()
+            annotation.coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            annotation.title = item.bin.address
+            map.addAnnotation(annotation)
+            context.coordinator.annotations.append(annotation)
         }
-        map.moveCamera(NMFCameraUpdate(scrollTo: NMGLatLng(lat: center.latitude, lng: center.longitude)))
+    }
+
+    private var region: MKCoordinateRegion {
+        MKCoordinateRegion(center: center,
+                          latitudinalMeters: 2_500,
+                          longitudinalMeters: 2_500)
     }
 }

@@ -18,7 +18,6 @@
 		A10000000000000000000010 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* CameraCapture.swift */; };
 		A10000000000000000000011 /* ../../shared/recycling-guides.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../shared/recycling-guides.json */; };
 		A10000000000000000000012 /* BinMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* BinMapView.swift */; };
-		A10000000000000000000013 /* NMapsMap in Frameworks */ = {isa = PBXBuildFile; productRef = A70000000000000000000001 /* NMapsMap */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,7 +40,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000013 /* NMapsMap in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -99,7 +97,6 @@
 			);
 			name = EcoCheck;
 			packageProductDependencies = (
-				A70000000000000000000001 /* NMapsMap */,
 			);
 			productName = EcoCheck;
 			productReference = A20000000000000000000003 /* EcoCheck.app */;
@@ -130,7 +127,6 @@
 			);
 			mainGroup = A40000000000000000000001;
 			packageReferences = (
-				A70000000000000000000002 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */,
 			);
 			productRefGroup = A40000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -273,24 +269,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		A70000000000000000000002 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/navermaps/SPM-NMapsMap";
-			requirement = {
-				kind = exactVersion;
-				version = 3.24.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		A70000000000000000000001 /* NMapsMap */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A70000000000000000000002 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */;
-			productName = NMapsMap;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A60000000000000000000001 /* Project object */;
 }
