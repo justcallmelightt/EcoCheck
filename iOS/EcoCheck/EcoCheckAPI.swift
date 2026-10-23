@@ -46,6 +46,44 @@ struct ScanPage: Decodable, Sendable {
     let offset: Int
 }
 
+// Scan history belongs to this device. It works without an account or server URL.
+actor LocalScanStore {
+    static let shared = LocalScanStore()
+
+    private var fileURL: URL {
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("EcoCheck", isDirectory: true)
+        return directory.appendingPathComponent("scans.json")
+    }
+
+    func all() throws -> [SavedScan] {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        let data = try Data(contentsOf: fileURL)
+        return try JSONDecoder().decode([SavedScan].self, from: data)
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func save(id: String, guide: RecyclingGuide, source: String, modelVersion: String) throws {
+        var records = try all()
+        guard !records.contains(where: { $0.id == id }) else { return }
+        records.insert(SavedScan(id: id, categoryId: guide.id, name: guide.name,
+                                 material: guide.material, source: source,
+                                 modelVersion: modelVersion,
+                                 createdAt: ISO8601DateFormatter().string(from: Date())), at: 0)
+        try write(records)
+    }
+
+    func delete(id: String) throws {
+        try write(all().filter { $0.id != id })
+    }
+
+    private func write(_ records: [SavedScan]) throws {
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try JSONEncoder().encode(records).write(to: fileURL, options: .atomic)
+    }
+}
+
 struct MapConfiguration: Decodable, Sendable {
     let clientId: String
 }

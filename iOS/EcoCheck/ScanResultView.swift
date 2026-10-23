@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ScanResultView: View {
     let imageData: Data
+    var onScanAnother: (() -> Void)? = nil
     @State private var analysis: AnalysisResult?
     @State private var analysisError: String?
     @State private var saveMessage: String?
@@ -9,51 +10,93 @@ struct ScanResultView: View {
     @State private var isSaving = false
     @State private var isSaved = false
     @State private var analysisTask: Task<Void, Never>?
+    private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if let image = UIImage(data: imageData) {
-                    Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: 260)
-                }
-                if let result = analysis {
-                    Text(result.name).font(.title2.bold())
-                    Text(result.material).foregroundStyle(.secondary)
-                    Text(result.reason).font(.callout)
-                    GuideSteps(guide: result.guide)
-                    if result.saveAllowed {
-                        Button(isSaved ? "기록 저장 완료" : "결과를 확인하고 기록 저장") {
-                            Task { await save(result) }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(isSaving || isSaved)
-                    } else {
-                        Text("확실하지 않은 결과라 AI 기록으로 저장하지 않아요. 재질을 직접 선택해 안내를 확인할 수 있어요.")
-                            .font(.callout).foregroundStyle(.secondary)
-                        NavigationLink("목록에서 직접 선택하기") { ManualMaterialSelectionView() }
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let image = UIImage(data: imageData) {
+                        Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: 270)
+                            .padding(.horizontal, 10)
                     }
-                    if isSaving { ProgressView("저장 중…") }
-                } else if let analysisError {
-                    Label("분석을 완료하지 못했어요", systemImage: "info.circle").font(.headline)
-                    Text(analysisError)
-                    Button("다시 분석") { startAnalysis() }.disabled(isAnalyzing)
-                    NavigationLink("목록에서 직접 선택하기") { ManualMaterialSelectionView() }
-                } else if isAnalyzing {
-                    ProgressView("사진을 분석 중…")
-                } else {
-                    Text("사진이 EcoCheck 서버를 거쳐 Google Gemini로 전송돼요. 무료 API에서는 Google이 입력을 제품 개선에 사용할 수 있으니 개인정보가 담긴 사진은 보내지 마세요. 분석 결과를 확인한 뒤에만 기록을 저장합니다.")
-                        .font(.callout)
-                    Button("동의하고 사진 분석") { startAnalysis() }
-                        .buttonStyle(.borderedProminent)
-                    NavigationLink("사진 전송 없이 분리배출 안내 찾기") { ManualMaterialSelectionView() }
+                    if let result = analysis {
+                        HStack(alignment: .center, spacing: 13) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 18, weight: .bold)).frame(width: 48, height: 48)
+                                .background(lime.opacity(0.55), in: Circle())
+                            Text("정확하게 인식했어요!").font(.custom("Pretendard-SemiBold", size: 17))
+                            Spacer()
+                        }
+                        .padding(14).background(Color(red: 228/255, green: 249/255, blue: 210/255), in: Capsule())
+                        .padding(.top, 10)
+
+                        HStack { Text("배출 분류").foregroundStyle(.secondary); Spacer(); Text(result.name).fontWeight(.semibold) }
+                            .padding(.vertical, 18).overlay(alignment: .bottom) { Rectangle().fill(Color(.separator).opacity(0.35)).frame(height: 1) }
+                        HStack { Text("재질").foregroundStyle(.secondary); Spacer(); Text(result.material).fontWeight(.medium) }
+                            .padding(.vertical, 18).overlay(alignment: .bottom) { Rectangle().fill(Color(.separator).opacity(0.35)).frame(height: 1) }
+                        HStack(spacing: 13) {
+                            Image(systemName: "lightbulb").font(.system(size: 20)).foregroundStyle(.secondary)
+                            Text("라벨을 떼고, 내용물을 비워주세요").font(.custom("Pretendard-Medium", size: 14)).foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(18).background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+                        .padding(.top, 22)
+                        Text(result.reason).font(.custom("Pretendard-Regular", size: 14)).foregroundStyle(.secondary).padding(.top, 16)
+                    } else if let analysisError {
+                        ContentUnavailableView("인식하지 못했어요", systemImage: "questionmark.circle", description: Text(analysisError))
+                        Button("다시 분석") { startAnalysis() }.disabled(isAnalyzing)
+                        NavigationLink("하나씩 선택하기") { ManualMaterialSelectionView() }
+                    } else if isAnalyzing {
+                        VStack(spacing: 18) {
+                            ProgressView().controlSize(.large).tint(lime)
+                            Text("사진을 분석하고 있어요").font(.custom("Pretendard-SemiBold", size: 18))
+                            Text("잠시만 기다려주세요").font(.custom("Pretendard-Regular", size: 14)).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 50)
+                    } else {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("사진을 분석해볼까요?").font(.custom("Pretendard-Bold", size: 22))
+                            Text("사진은 EcoCheck 서버를 거쳐 Google Gemini로 전송됩니다. 무료 API는 입력을 제품 개선에 사용할 수 있으니 개인정보가 담긴 사진은 보내지 마세요.")
+                                .font(.custom("Pretendard-Regular", size: 14)).foregroundStyle(.secondary)
+                            Button("동의하고 사진 분석") { startAnalysis() }
+                                .buttonStyle(.borderedProminent).tint(Color(red: 31/255, green: 39/255, blue: 36/255))
+                            NavigationLink("사진 전송 없이 안내 찾기") { ManualMaterialSelectionView() }
+                        }
+                        .padding(18).background(.white, in: RoundedRectangle(cornerRadius: 20)).padding(.top, 18)
+                    }
+                    if let saveMessage { Text(saveMessage).font(.footnote).foregroundStyle(.secondary).padding(.top, 12) }
+                    Text("AI 결과는 틀릴 수 있어요. 배출 전에 지역별 안내를 확인해주세요.")
+                        .font(.footnote).foregroundStyle(.secondary).padding(.top, 16)
                 }
-                if let saveMessage { Text(saveMessage).font(.callout).foregroundStyle(.secondary) }
-                Text("서버에는 사진을 저장하지 않아요. AI 판단은 틀릴 수 있으니 실제 배출 전 안내를 확인해주세요.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                .padding(.horizontal, 25).padding(.top, 18).padding(.bottom, 20)
             }
-            .padding(24)
+            if let result = analysis {
+                VStack(spacing: 9) {
+                    Button { Task { await save(result) } } label: {
+                        Text(isSaved ? "기록 저장 완료" : "분리배출 기록 저장")
+                            .font(.custom("Pretendard-SemiBold", size: 16))
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                    }
+                    .disabled(isSaved || isSaving || !result.saveAllowed)
+                    .buttonStyle(.borderedProminent).tint(lime).foregroundStyle(.black)
+                    NavigationLink("분리배출 방법 보기") { GuideSteps(guide: result.guide) }
+                        .font(.custom("Pretendard-SemiBold", size: 16)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .background(Color(red: 31/255, green: 39/255, blue: 36/255), in: Capsule())
+                    Button { onScanAnother?() } label: {
+                        Label("다른 쓰레기 스캔하기", systemImage: "viewfinder")
+                            .font(.custom("Pretendard-Medium", size: 16)).foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, minHeight: 54)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 25).padding(.top, 10).padding(.bottom, 12)
+                .background(.white)
+            }
         }
-        .navigationTitle("스캔 결과")
+        .background(.white, ignoresSafeAreaEdges: .all)
+        .navigationTitle("인식결과")
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { analysisTask?.cancel() }
     }
@@ -89,14 +132,15 @@ struct ScanResultView: View {
     }
 
     @MainActor private func save(_ result: AnalysisResult) async {
+        guard !isSaved && !isSaving else { return }
         isSaving = true
         defer { isSaving = false }
         do {
-            // Retry with the same server analysis ID so a timeout cannot duplicate the record.
-            let _ = try await EcoCheckAPI.shared.save(ScanSubmission(analysisId: result.id, confirmed: true))
+            try await LocalScanStore.shared.save(id: result.id, guide: result.guide,
+                                                 source: result.source, modelVersion: result.modelVersion)
             isSaved = true
-            saveMessage = "기록을 저장했어요."
-        } catch { saveMessage = "저장하지 못했어요. \(error.localizedDescription) 다시 눌러 재시도할 수 있어요." }
+            saveMessage = "이 아이폰에 기록을 저장했어요."
+        } catch { saveMessage = "저장하지 못했어요. \(error.localizedDescription)" }
     }
 }
 
@@ -158,7 +202,7 @@ private enum ManualRoute: Hashable {
     case other
 }
 
-private struct ManualMaterialSelectionView: View {
+struct ManualMaterialSelectionView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var guides = (try? RecyclingGuide.load()) ?? []
     @State private var selected: ManualMaterial?
@@ -226,7 +270,7 @@ private struct ManualMaterialSelectionView: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
-        .background(background.ignoresSafeArea())
+        .background(background, ignoresSafeAreaEdges: .all)
         .navigationTitle("재질 선택")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showingNext) {
@@ -375,12 +419,12 @@ private struct ManualGuideReviewView: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            let submission = ManualScanSubmission(requestId: requestId, categoryId: guide.id, confirmed: true)
-            _ = try await EcoCheckAPI.shared.saveManual(submission)
+            try await LocalScanStore.shared.save(id: requestId, guide: guide,
+                                                 source: "manual", modelVersion: "local")
             isSaved = true
-            saveMessage = "직접 선택한 분류를 기록했어요."
+            saveMessage = "직접 선택한 분류를 이 아이폰에 기록했어요."
         } catch {
-            saveMessage = "저장하지 못했어요. \(error.localizedDescription) 같은 요청 ID로 재시도할 수 있어요."
+            saveMessage = "저장하지 못했어요. \(error.localizedDescription)"
         }
     }
 }
