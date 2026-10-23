@@ -49,7 +49,13 @@ struct BinMapView: View {
     @State private var needsRefresh = false
     @State private var searchText = ""
     @State private var selectedBin: NearbyBin?
+    @State private var panelCollapsed = false
+    @GestureState private var panelDragTranslation: CGFloat = 0
     private let seoulCityHall = CLLocationCoordinate2D(latitude: 37.579, longitude: 126.973)
+
+    private var panelHeight: CGFloat {
+        min(300, max(76, (panelCollapsed ? 82 : 230) - panelDragTranslation))
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -94,6 +100,16 @@ struct BinMapView: View {
                     mapTabBar
                 }
                 .padding(.top, max(60, geometry.safeAreaInsets.top + 10))
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Text("© OpenStreetMap contributors")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color.black.opacity(0.72))
+                    .padding(.horizontal, 6).padding(.vertical, 4)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.trailing, 8)
+                    .padding(.bottom, panelHeight + 104 + 5)
+                    .allowsHitTesting(false)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
@@ -162,7 +178,18 @@ struct BinMapView: View {
         VStack(alignment: .leading, spacing: 12) {
             Capsule().fill(Color(red: 217/255, green: 217/255, blue: 217/255))
                 .frame(width: 40, height: 4).frame(maxWidth: .infinity)
-            if let selectedBin {
+            if panelCollapsed {
+                HStack(spacing: 10) {
+                    Text(selectedBin.map { panelTitle(for: $0) } ?? "주변 수거함")
+                        .font(.custom("Pretendard-Bold", size: 16))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text("\(filteredBins.count)개")
+                        .font(.custom("Pretendard-Medium", size: 13)).foregroundStyle(.secondary)
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                }
+            } else if let selectedBin {
                 Text(bins?.source == "local-estimate" ? "주소 기준 추정 위치" : "수거함 위치")
                     .font(.custom("Pretendard-Bold", size: 19))
                 Text(selectedBin.bin.address)
@@ -201,9 +228,33 @@ struct BinMapView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 29).padding(.top, 10)
-        .frame(maxWidth: .infinity, minHeight: 230, maxHeight: 230, alignment: .topLeading)
+        .frame(maxWidth: .infinity).frame(height: panelHeight, alignment: .topLeading)
         .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30))
+        .clipped()
         .shadow(color: .black.opacity(0.1), radius: 10, y: -4)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 6)
+                .updating($panelDragTranslation) { value, state, _ in
+                    state = value.translation.height
+                }
+                .onEnded { value in
+                    let predicted = value.predictedEndTranslation.height
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
+                        if predicted > 45 { panelCollapsed = true }
+                        else if predicted < -45 { panelCollapsed = false }
+                    }
+                }
+        )
+        .accessibilityAction(named: Text(panelCollapsed ? "패널 펼치기" : "패널 접기")) {
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.88)) {
+                panelCollapsed.toggle()
+            }
+        }
+    }
+
+    private func panelTitle(for bin: NearbyBin) -> String {
+        bins?.source == "local-estimate" ? "주소 기준 위치" : "주변 수거함"
     }
 
     private var center: CLLocationCoordinate2D {
@@ -231,6 +282,7 @@ struct BinMapView: View {
             bins = Self.offlineSample(type: selectedType, center: center)
             errorMessage = nil
         }
+        if selectedBin == nil { selectedBin = bins?.items.first }
     }
 
     private static func offlineSample(type: String, center: CLLocationCoordinate2D) -> NearbyBins {
@@ -260,6 +312,7 @@ private struct OpenStreetMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate {
         var parent: OpenStreetMapView
         var annotations: [BinAnnotation] = []
+        var lastRequestedCenter: CLLocationCoordinate2D?
         init(_ parent: OpenStreetMapView) { self.parent = parent }
         func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
             guard let bin = (view.annotation as? BinAnnotation)?.bin else { return }
@@ -273,6 +326,10 @@ private struct OpenStreetMapView: UIViewRepresentable {
             view.glyphTintColor = .black
             return view
         }
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            guard let tiles = overlay as? MKTileOverlay else { return MKOverlayRenderer(overlay: overlay) }
+            return MKTileOverlayRenderer(tileOverlay: tiles)
+        }
     }
 
     func makeUIView(context: Context) -> MKMapView {
@@ -280,19 +337,28 @@ private struct OpenStreetMapView: UIViewRepresentable {
         map.delegate = context.coordinator
         map.mapType = .standard
         map.setRegion(region, animated: false)
+        context.coordinator.lastRequestedCenter = center
+        let tiles = OpenStreetMapTileOverlay()
+        map.addOverlay(tiles, level: .aboveLabels)
         return map
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
         context.coordinator.parent = self
-        map.setRegion(region, animated: true)
-        map.removeAnnotations(context.coordinator.annotations)
-        context.coordinator.annotations.removeAll()
-        for item in bins {
-            guard let lat = item.bin.latitude, let lng = item.bin.longitude else { continue }
-            let annotation = BinAnnotation(bin: item, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng))
-            map.addAnnotation(annotation)
-            context.coordinator.annotations.append(annotation)
+        if let previous = context.coordinator.lastRequestedCenter,
+           abs(previous.latitude - center.latitude) > 0.00001 || abs(previous.longitude - center.longitude) > 0.00001 {
+            map.setRegion(region, animated: true)
+            context.coordinator.lastRequestedCenter = center
+        }
+        let previousIDs = context.coordinator.annotations.map { $0.bin.id }
+        let updatedIDs = bins.map(\.id)
+        if previousIDs != updatedIDs {
+            map.removeAnnotations(context.coordinator.annotations)
+            context.coordinator.annotations = bins.compactMap { item in
+                guard let lat = item.bin.latitude, let lng = item.bin.longitude else { return nil }
+                return BinAnnotation(bin: item, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng))
+            }
+            map.addAnnotations(context.coordinator.annotations)
         }
     }
 
@@ -300,6 +366,30 @@ private struct OpenStreetMapView: UIViewRepresentable {
         MKCoordinateRegion(center: center,
                           latitudinalMeters: 2_500,
                           longitudinalMeters: 2_500)
+    }
+}
+
+private final class OpenStreetMapTileOverlay: MKTileOverlay {
+    init() {
+        super.init(urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png")
+        canReplaceMapContent = true
+    }
+
+    override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
+        let url = url(forTilePath: path)
+        var request = URLRequest(url: url)
+        request.cachePolicy = .useProtocolCachePolicy
+        request.setValue("EcoCheck-iOS/1.0 (+https://github.com/justcallmelightt/EcoCheck)",
+                         forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error { result(nil, error); return }
+            guard let response = response as? HTTPURLResponse,
+                  (200..<300).contains(response.statusCode), let data else {
+                result(nil, URLError(.badServerResponse))
+                return
+            }
+            result(data, nil)
+        }.resume()
     }
 }
 
