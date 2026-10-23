@@ -200,11 +200,16 @@ struct HistoryView: View {
                     .font(.custom("Pretendard-Medium", size: 14.5 * scale)).foregroundStyle(muted)
             }
             Spacer(minLength: 0)
-            Button(role: .destructive) { Task { await remove(scan) } } label: {
-                Image(systemName: "trash").font(.system(size: 17))
-                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            VStack(alignment: .trailing, spacing: 3 * scale) {
+                Text("+—P")
+                    .font(.custom("Pretendard-Bold", size: 16 * scale))
+                    .foregroundStyle(Color(red: 93/255, green: 145/255, blue: 99/255))
+                Text("—g CO₂")
+                    .font(.custom("Pretendard-Medium", size: 14 * scale))
+                    .foregroundStyle(muted)
             }
-            .accessibilityLabel("\(scan.name) 기록 삭제")
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("포인트와 CO₂ 절감량 미산정")
         }
         .padding(.horizontal, 12 * scale)
         .frame(height: 72 * scale)
@@ -276,20 +281,19 @@ struct HistoryView: View {
         } catch { errorMessage = error.localizedDescription }
     }
 
-    @MainActor private func remove(_ scan: SavedScan) async {
-        do {
-            try await LocalScanStore.shared.delete(id: scan.id)
-            await load()
-        } catch { errorMessage = error.localizedDescription }
-    }
 }
 
 struct ServerSettingsView: View {
-    @AppStorage("EcoCheckServerURL") private var serverURL = ""
+    var onReplayOnboarding: () -> Void = {}
+    @AppStorage("EcoCheckServerURL") private var serverURL = "http://172.16.21.186:8080"
     @State private var draft = ""
     @State private var message: String?
+    @State private var notice: String?
+    @State private var showingDevelopmentSettings = false
+    @State private var showingOnboardingResetConfirmation = false
     @AppStorage("ecoCheckNotificationsEnabled") private var notificationsEnabled = true
     @AppStorage("ecoCheckMissionNotificationsEnabled") private var missionNotificationsEnabled = true
+    @AppStorage("ecoCheckMarketingNotificationsEnabled") private var marketingNotificationsEnabled = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let background = Color(red: 245/255, green: 247/255, blue: 249/255)
@@ -321,20 +325,37 @@ struct ServerSettingsView: View {
                     sectionLabel("알림", scale: scale)
                     settingToggle("푸시 알림", value: $notificationsEnabled, scale: scale)
                     settingToggle("적립·미션 알림", value: $missionNotificationsEnabled, scale: scale)
-                    row("마케팅 정보 수신", detail: "준비 중", scale: scale)
-                    Text("알림 기능은 아직 연결되지 않았어요. 선택한 설정만 이 기기에 저장됩니다.")
-                        .font(.custom("Pretendard-Regular", size: 12 * scale))
-                        .foregroundStyle(secondary).padding(.top, 8 * scale)
+                    settingToggle("마케팅 정보 수신", value: $marketingNotificationsEnabled, scale: scale)
 
                     sectionLabel("계정", scale: scale)
-                    row("로그인 없이 이용 중", detail: "게스트", scale: scale)
-                    Text("분리배출 안내와 지도는 로그인 없이 이용할 수 있어요. 포인트 적립과 계정 동기화는 준비 중이에요.")
-                        .font(.custom("Pretendard-Regular", size: 13 * scale))
-                        .foregroundStyle(secondary).lineSpacing(4 * scale)
-                        .padding(.top, 10 * scale)
+                    actionRow("프로필 수정", scale: scale) { notice = "계정 기능이 연결되면 프로필을 수정할 수 있어요." }
+                    actionRow("비밀번호 변경", scale: scale) { notice = "계정 기능이 연결되면 비밀번호를 변경할 수 있어요." }
+                    actionRow("연결된 계정", scale: scale) { notice = "현재 로그인 없이 이용 중이에요." }
 
-                    sectionLabel("분석 서버", scale: scale)
-                    VStack(alignment: .leading, spacing: 10 * scale) {
+                    sectionLabel("기타", scale: scale)
+                    actionRow("이용약관", scale: scale) { notice = "이용약관 화면을 준비하고 있어요." }
+                    row("앱 버전", detail: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "개발 빌드", scale: scale)
+                    Text("회원 탈퇴")
+                        .font(.custom("Pretendard-Medium", size: 13 * scale))
+                        .foregroundStyle(secondary)
+                        .padding(.top, 66 * scale)
+
+                    Button { showingDevelopmentSettings.toggle() } label: {
+                        HStack {
+                            Text("개발 설정")
+                            Spacer()
+                            Image(systemName: showingDevelopmentSettings ? "chevron.up" : "chevron.down")
+                        }
+                        .font(.custom("Pretendard-Medium", size: 13 * scale))
+                        .foregroundStyle(secondary)
+                        .frame(height: 44 * scale)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(SettingsPressStyle(reduceMotion: reduceMotion))
+                    .padding(.top, 22 * scale)
+
+                    if showingDevelopmentSettings {
+                        sectionLabel("분석 서버", scale: scale)
                         TextField("https://your-server.example", text: $draft)
                             .font(.custom("Pretendard-Regular", size: 16 * scale))
                             .textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -363,17 +384,25 @@ struct ServerSettingsView: View {
                             Text(message).font(.custom("Pretendard-Regular", size: 12 * scale))
                                 .foregroundStyle(secondary)
                         }
-                        Text("사진 AI 분석에는 서버 연결이 필요해요. 수동 분류와 기록은 이 아이폰에서 저장·조회·삭제할 수 있어요.")
-                            .font(.custom("Pretendard-Regular", size: 13 * scale))
-                            .foregroundStyle(secondary).lineSpacing(4 * scale)
+                        Button {
+                            showingOnboardingResetConfirmation = true
+                        } label: {
+                            HStack {
+                                Text("온보딩 다시 보기")
+                                    .font(.custom("Pretendard-SemiBold", size: 15 * scale))
+                                Spacer()
+                                Image(systemName: "arrow.counterclockwise")
+                            }
+                            .foregroundStyle(ink)
+                            .frame(minHeight: 58 * scale)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(SettingsPressStyle(reduceMotion: reduceMotion))
+                        Text("알림 설정은 기기에 저장됩니다. 사진 분석을 선택하면 사진이 EcoCheck 서버를 거쳐 Google Gemini로 전송됩니다.")
+                            .font(.custom("Pretendard-Regular", size: 12 * scale))
+                            .foregroundStyle(secondary).lineSpacing(3 * scale)
+                            .padding(.top, 14 * scale)
                     }
-
-                    sectionLabel("기타", scale: scale)
-                    row("앱 버전", detail: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "개발 빌드", scale: scale)
-                    Text("사진 분석을 선택하면 사진이 EcoCheck 서버를 거쳐 Google Gemini로 전송됩니다.")
-                        .font(.custom("Pretendard-Regular", size: 12 * scale))
-                        .foregroundStyle(secondary).lineSpacing(3 * scale)
-                        .padding(.top, 22 * scale)
                 }
                 .padding(.horizontal, 29 * scale)
                 .padding(.top, max(58 * scale, geometry.safeAreaInsets.top + 8))
@@ -384,6 +413,18 @@ struct ServerSettingsView: View {
         .ignoresSafeArea()
         .preferredColorScheme(.light)
         .onAppear { draft = serverURL }
+        .confirmationDialog("온보딩을 다시 표시할까요?", isPresented: $showingOnboardingResetConfirmation, titleVisibility: .visible) {
+            Button("초기화하고 다시 보기") {
+                onReplayOnboarding()
+                dismiss()
+            }
+            Button("취소", role: .cancel) { }
+        } message: {
+            Text("온보딩과 로그인 화면만 다시 표시해요. 기록과 설정은 유지됩니다.")
+        }
+        .alert("안내", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
+            Button("확인") { notice = nil }
+        } message: { Text(notice ?? "") }
     }
 
     private var line: some View {
@@ -406,6 +447,24 @@ struct ServerSettingsView: View {
         .font(.custom("Pretendard-SemiBold", size: 16 * scale))
         .frame(height: 50 * scale)
         .overlay(alignment: .bottom) { line }
+    }
+
+    private func actionRow(_ title: String, scale: CGFloat, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12 * scale, weight: .medium))
+                    .foregroundStyle(secondary.opacity(0.5))
+            }
+            .font(.custom("Pretendard-SemiBold", size: 16 * scale))
+            .foregroundStyle(ink)
+            .frame(height: 59 * scale)
+            .overlay(alignment: .bottom) { line }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SettingsPressStyle(reduceMotion: reduceMotion))
     }
 
     private func settingToggle(_ title: String, value: Binding<Bool>, scale: CGFloat) -> some View {
@@ -472,6 +531,9 @@ struct ProfileView: View {
                         }
                         .padding(.top, 28)
 
+                        levelProgress
+                            .padding(.top, 24)
+
                         HStack(alignment: .top, spacing: 0) {
                             metric("절약 CO₂", value: "—", unit: "g")
                             metric("분리배출", value: "\(recordCount)", unit: "회")
@@ -482,7 +544,8 @@ struct ProfileView: View {
                         .overlay(alignment: .bottom) { divider }
 
                         profileButton("내 기록") { onNavigate("기록") }
-                        profileButton("포인트 교환") { notice = "로그인과 포인트 적립 기능이 연결되면 이용할 수 있어요." }
+                        NavigationLink { PointExchangeView() } label: { profileRow("포인트 교환") }
+                            .buttonStyle(ProfilePressStyle(reduceMotion: reduceMotion))
                         NavigationLink { GuideListView() } label: { profileRow("분리배출 가이드") }
                             .buttonStyle(ProfilePressStyle(reduceMotion: reduceMotion))
                         profileButton("알림 설정") { onNavigate("설정") }
@@ -494,7 +557,7 @@ struct ProfileView: View {
                         Text("CO₂ 절감량과 포인트는 아직 산정되지 않아요.")
                             .font(.custom("Pretendard-Regular", size: 12)).foregroundStyle(.secondary).padding(.top, 9)
                     }
-                    .padding(.horizontal, 29).padding(.top, 64).padding(.bottom, 150)
+                    .padding(.horizontal, 29).padding(.top, 0).padding(.bottom, 150)
                 }
                 .background(canvas.ignoresSafeArea())
                 .toolbar(.hidden, for: .navigationBar)
@@ -511,6 +574,33 @@ struct ProfileView: View {
 
     private var divider: some View {
         Rectangle().fill(Color.gray.opacity(0.18)).frame(height: 1)
+    }
+
+    private var levelProgress: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Lv.4까지 4번 남았어요")
+                    .foregroundStyle(Color(red: 20/255, green: 24/255, blue: 22/255))
+                Spacer()
+                Text("6 / 10")
+                    .foregroundStyle(Color(red: 107/255, green: 114/255, blue: 111/255))
+            }
+            .font(.custom("Pretendard-SemiBold", size: 14))
+
+            HStack(spacing: 4) {
+                ForEach(0..<10, id: \.self) { segment in
+                    Capsule()
+                        .fill(segment < 6
+                              ? Color(red: 158/255, green: 214/255, blue: 41/255)
+                              : Color(red: 227/255, green: 234/255, blue: 229/255))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 6)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("다음 레벨까지 6 / 10")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func metric(_ title: String, value: String, unit: String) -> some View {
@@ -543,10 +633,14 @@ struct ProfileView: View {
             profileTab("EcoTabHome", "홈")
             profileTab("EcoTabClock", "기록")
             Button { onNavigate("스캔") } label: {
-                Image("EcoTabScan").resizable().renderingMode(.template).scaledToFit().frame(width: 31, height: 31)
-                    .foregroundStyle(.black).frame(width: 61, height: 61).background(lime, in: Circle())
-                    .frame(maxWidth: .infinity)
+                VStack(spacing: 4) {
+                    Image("EcoTabScan").resizable().renderingMode(.template).scaledToFit().frame(width: 31, height: 31)
+                        .foregroundStyle(.black).frame(width: 61, height: 61).background(lime, in: Circle())
+                    Text("스캔").font(.custom("Pretendard-Medium", size: 11)).foregroundStyle(.black)
+                }
+                .frame(maxWidth: .infinity)
             }
+            .buttonStyle(ProfilePressStyle(reduceMotion: reduceMotion))
             profileTab("EcoTabMap", "지도")
             profileTab("EcoTabProfile", "마이페이지", selected: true)
         }
@@ -558,7 +652,11 @@ struct ProfileView: View {
     private func profileTab(_ asset: String, _ title: String, selected: Bool = false) -> some View {
         Button { onNavigate(title) } label: {
             VStack(spacing: 4) {
-                Image(asset).resizable().renderingMode(.template).scaledToFit().frame(width: 32, height: 32)
+                if selected {
+                    Image(systemName: "person.fill").font(.system(size: 27)).frame(width: 32, height: 32)
+                } else {
+                    Image(asset).resizable().renderingMode(.template).scaledToFit().frame(width: 32, height: 32)
+                }
                 Text(title).font(.custom("Pretendard-Medium", size: 11))
             }
             .foregroundStyle(selected ? Color.black : Color.gray).frame(maxWidth: .infinity)
@@ -576,10 +674,342 @@ struct ProfileView: View {
     }
 }
 
+private struct RewardCoupon: Identifiable {
+    let id: String
+    let title: String
+    let detail: String
+    let category: String
+    let points: Int
+    let symbol: String
+
+    static let americano = RewardCoupon(
+        id: "americano",
+        title: "아메리카노 쿠폰",
+        detail: "카페 · Tall 사이즈",
+        category: "카페",
+        points: 300,
+        symbol: "cup.and.saucer.fill"
+    )
+}
+
+private struct PointExchangeView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var category = "전체"
+    @State private var selectedCoupon = RewardCoupon.americano
+    @State private var confirmingExchange = false
+    @State private var showingCoupon = false
+
+    private let categories = ["전체", "카페", "편의점", "기부", "굿즈"]
+    private let canvas = Color(red: 245/255, green: 247/255, blue: 249/255)
+    private let ink = Color(red: 20/255, green: 24/255, blue: 22/255)
+    private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
+    private let exchangeable: [RewardCoupon] = [
+        .americano,
+        RewardCoupon(id: "convenience", title: "편의점 1,000원 쿠폰", detail: "편의점 · 모바일 쿠폰", category: "편의점", points: 500, symbol: "storefront.fill"),
+        RewardCoupon(id: "tree", title: "나무 가꾸기 기부", detail: "내 이름으로 나무 한 그루를 심어요", category: "기부", points: 100, symbol: "leaf.fill")
+    ]
+
+    private var visibleCoupons: [RewardCoupon] {
+        category == "전체" ? exchangeable : exchangeable.filter { $0.category == category }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            rewardHeader("포인트 교환")
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("사용 가능한 포인트")
+                                .font(.custom("Pretendard-Medium", size: 13))
+                                .foregroundStyle(Color.gray)
+                            Text("320P")
+                                .font(.custom("Pretendard-Bold", size: 34))
+                                .tracking(-0.8)
+                                .foregroundStyle(ink)
+                        }
+                        Spacer()
+                        Image("HomeBottleCrushed")
+                            .resizable().scaledToFit().frame(width: 116, height: 116)
+                    }
+                    .padding(.top, 17)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock")
+                        Text("이달 말 소멸 예정")
+                        Spacer()
+                        Text("5P")
+                            .font(.custom("Pretendard-Bold", size: 13))
+                    }
+                    .font(.custom("Pretendard-Medium", size: 12))
+                    .foregroundStyle(Color(red: 88/255, green: 134/255, blue: 51/255))
+                    .padding(14)
+                    .background(Color(red: 233/255, green: 247/255, blue: 207/255), in: RoundedRectangle(cornerRadius: 14))
+                    .padding(.top, 8)
+
+                    HStack {
+                        Text("쿠폰으로 바꾸기")
+                            .font(.custom("Pretendard-Bold", size: 19))
+                            .foregroundStyle(ink)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.gray)
+                    }
+                    .padding(.top, 24).padding(.bottom, 11)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(categories, id: \.self) { item in
+                                Button { category = item } label: {
+                                    Text(item)
+                                        .font(.custom("Pretendard-SemiBold", size: 12))
+                                        .foregroundStyle(category == item ? .white : ink)
+                                        .padding(.horizontal, 14).frame(height: 34)
+                                        .background(category == item ? ink : .white, in: Capsule())
+                                }
+                                .buttonStyle(RewardPressStyle(reduceMotion: reduceMotion))
+                            }
+                        }
+                    }
+
+                    VStack(spacing: 9) {
+                        ForEach(visibleCoupons) { coupon in
+                            couponRow(coupon)
+                        }
+                    }
+                    .padding(.top, 12)
+
+                    Text("아직 모자라요")
+                        .font(.custom("Pretendard-Bold", size: 17))
+                        .foregroundStyle(ink)
+                        .padding(.top, 21).padding(.bottom, 9)
+
+                    VStack(spacing: 13) {
+                        progressReward("편의점 1,000원 쿠폰", current: 320, goal: 500, symbol: "storefront.fill")
+                        progressReward("EcoCheck 에코백", current: 320, goal: 800, symbol: "bag.fill")
+                    }
+                    .padding(14)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                    .padding(.bottom, 24)
+
+                    Text("포인트와 교환 상품은 디자인 예시예요. 실제 적립·교환은 아직 연결되지 않았어요.")
+                        .font(.custom("Pretendard-Regular", size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 24)
+                }
+                .padding(.horizontal, 24)
+            }
+            .background(canvas)
+        }
+        .background(canvas.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(isPresented: $showingCoupon) {
+            CouponExchangeCompleteView(coupon: selectedCoupon)
+        }
+        .confirmationDialog("\(selectedCoupon.title)을(를) 교환할까요?", isPresented: $confirmingExchange, titleVisibility: .visible) {
+            Button("\(selectedCoupon.points)P로 교환") { showingCoupon = true }
+            Button("취소", role: .cancel) { }
+        } message: {
+            Text("교환 완료 화면은 디자인 미리보기이며 포인트는 실제로 차감되지 않아요.")
+        }
+    }
+
+    private func rewardHeader(_ title: String) -> some View {
+        ZStack {
+            Text(title).font(.custom("Pretendard-SemiBold", size: 17)).foregroundStyle(ink)
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 19, weight: .medium))
+                        .foregroundStyle(ink).frame(width: 40, height: 40)
+                        .background(.white, in: Circle())
+                        .overlay(Circle().stroke(Color.gray.opacity(0.15), lineWidth: 0.8))
+                }
+                .buttonStyle(RewardPressStyle(reduceMotion: reduceMotion))
+                .accessibilityLabel("뒤로")
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 16).frame(height: 58).background(.white)
+    }
+
+    private func couponRow(_ coupon: RewardCoupon) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: coupon.symbol)
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(Color(red: 93/255, green: 160/255, blue: 52/255))
+                .frame(width: 42, height: 42)
+                .background(Color(red: 233/255, green: 247/255, blue: 207/255), in: Circle())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(coupon.title).font(.custom("Pretendard-SemiBold", size: 13)).foregroundStyle(ink)
+                Text(coupon.detail).font(.custom("Pretendard-Regular", size: 10)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 2)
+            VStack(spacing: 5) {
+                Text("\(coupon.points)P").font(.custom("Pretendard-Bold", size: 12)).foregroundStyle(ink)
+                Button("교환") {
+                    selectedCoupon = coupon
+                    confirmingExchange = true
+                }
+                .font(.custom("Pretendard-SemiBold", size: 10))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12).frame(height: 25)
+                .background(ink, in: Capsule())
+                .buttonStyle(RewardPressStyle(reduceMotion: reduceMotion))
+            }
+        }
+        .padding(11)
+        .background(.white, in: RoundedRectangle(cornerRadius: 15))
+    }
+
+    private func progressReward(_ title: String, current: CGFloat, goal: CGFloat, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol).foregroundStyle(Color(red: 126/255, green: 176/255, blue: 59/255))
+                Text(title).font(.custom("Pretendard-Medium", size: 12)).foregroundStyle(ink)
+                Spacer()
+                Text("\(Int(current)) / \(Int(goal))P")
+                    .font(.custom("Pretendard-Medium", size: 10)).foregroundStyle(.secondary)
+            }
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color(red: 229/255, green: 235/255, blue: 231/255))
+                    Capsule().fill(lime).frame(width: geometry.size.width * current / goal)
+                }
+            }
+            .frame(height: 5)
+        }
+    }
+
+    private struct RewardPressStyle: ButtonStyle {
+        let reduceMotion: Bool
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label.scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .opacity(configuration.isPressed ? 0.78 : 1)
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.86), value: configuration.isPressed)
+        }
+    }
+}
+
+private struct CouponExchangeCompleteView: View {
+    let coupon: RewardCoupon
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showingUsedNotice = false
+    private let ink = Color(red: 20/255, green: 24/255, blue: 22/255)
+    private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Text("쿠폰함").font(.custom("Pretendard-SemiBold", size: 17)).foregroundStyle(ink)
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 19, weight: .medium))
+                            .foregroundStyle(ink).frame(width: 40, height: 40)
+                            .background(.white, in: Circle())
+                            .overlay(Circle().stroke(Color.gray.opacity(0.15), lineWidth: 0.8))
+                    }
+                    .buttonStyle(RewardPressStyle(reduceMotion: reduceMotion))
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 16).frame(height: 58).background(.white)
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 17) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(red: 87/255, green: 163/255, blue: 65/255))
+                        Text("교환이 완료됐어요! \(coupon.points)P를 사용했어요.")
+                            .font(.custom("Pretendard-SemiBold", size: 12)).foregroundStyle(ink)
+                    }
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(red: 233/255, green: 247/255, blue: 207/255), in: RoundedRectangle(cornerRadius: 14))
+
+                    VStack(spacing: 15) {
+                        Image(systemName: coupon.symbol)
+                            .font(.system(size: 25, weight: .medium))
+                            .foregroundStyle(Color(red: 103/255, green: 166/255, blue: 65/255))
+                            .frame(width: 56, height: 56).background(lime.opacity(0.25), in: Circle())
+                        Text(coupon.title).font(.custom("Pretendard-Bold", size: 19)).foregroundStyle(ink)
+                        Text(coupon.detail).font(.custom("Pretendard-Regular", size: 12)).foregroundStyle(.secondary)
+                        Rectangle().fill(Color.gray.opacity(0.18)).frame(height: 1)
+                        HStack {
+                            Text("유효기간")
+                            Spacer()
+                            Text("2026.11.20 까지")
+                        }
+                        .font(.custom("Pretendard-Medium", size: 11)).foregroundStyle(.secondary)
+                        barcode
+                            .frame(height: 52)
+                        Text("8801 2345 6789 0123")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(ink)
+                    }
+                    .padding(23)
+                    .frame(maxWidth: .infinity)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 22))
+
+                    Button { showingUsedNotice = true } label: {
+                        Text("사용 완료하기")
+                            .font(.custom("Pretendard-SemiBold", size: 15)).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity).frame(height: 52)
+                            .background(ink, in: Capsule())
+                    }
+                    .buttonStyle(RewardPressStyle(reduceMotion: reduceMotion))
+
+                    Button { dismiss() } label: {
+                        Text("쿠폰 더 보기")
+                            .font(.custom("Pretendard-SemiBold", size: 14)).foregroundStyle(ink)
+                            .frame(maxWidth: .infinity).frame(height: 48)
+                            .background(.white, in: Capsule())
+                    }
+                    .buttonStyle(RewardPressStyle(reduceMotion: reduceMotion))
+                }
+                .padding(.horizontal, 23).padding(.top, 23).padding(.bottom, 30)
+            }
+            .background(Color(red: 245/255, green: 247/255, blue: 249/255))
+        }
+        .background(Color(red: 245/255, green: 247/255, blue: 249/255).ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+        .alert("쿠폰", isPresented: $showingUsedNotice) {
+            Button("확인", role: .cancel) { }
+        } message: {
+            Text("쿠폰 사용 완료 처리는 아직 연결되지 않았어요.")
+        }
+    }
+
+    private var barcode: some View {
+        GeometryReader { geometry in
+            HStack(alignment: .center, spacing: 2) {
+                ForEach(0..<43, id: \.self) { index in
+                    Rectangle().fill(ink.opacity(index.isMultiple(of: 3) ? 1 : 0.78))
+                        .frame(width: index.isMultiple(of: 4) ? 3 : 1.5, height: CGFloat(28 + (index * 13 % 23)))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+            .accessibilityLabel("쿠폰 바코드")
+        }
+        .frame(width: 220)
+    }
+
+    private struct RewardPressStyle: ButtonStyle {
+        let reduceMotion: Bool
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label.scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .opacity(configuration.isPressed ? 0.78 : 1)
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.86), value: configuration.isPressed)
+        }
+    }
+}
+
 struct NotificationsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var category = "전체"
-    private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
+    private let canvas = Color(red: 245/255, green: 247/255, blue: 249/255)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -591,28 +1021,39 @@ struct NotificationsView: View {
                 Spacer()
                 Color.clear.frame(width: 44, height: 44)
             }
-            .padding(.horizontal, 16).padding(.top, 60)
+            .padding(.horizontal, 16).padding(.top, 8)
             HStack(spacing: 10) {
                 ForEach(["전체", "포인트", "배출", "공지"], id: \.self) { option in
                     Button { category = option } label: {
                         Text(option).font(.custom("Pretendard-SemiBold", size: 14))
-                            .foregroundStyle(category == option ? .black : .gray)
+                            .foregroundStyle(category == option ? .white : .black)
                             .padding(.horizontal, 17).frame(height: 38)
-                            .background(category == option ? lime : Color(red: 241/255, green: 242/255, blue: 243/255), in: Capsule())
+                            .background(category == option ? .black : .white, in: Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(NotificationPressStyle(reduceMotion: reduceMotion))
                 }
+                Spacer(minLength: 0)
             }
-            .padding(.top, 25)
+            .padding(.horizontal, 28).padding(.top, 27)
             Spacer()
             Image(systemName: "bell.slash").font(.system(size: 42, weight: .ultraLight)).foregroundStyle(.gray)
+                .frame(width: 108, height: 108).background(.white, in: Circle())
             Text("아직 알림이 없어요").font(.custom("Pretendard-Bold", size: 22)).padding(.top, 22)
-            Text("알림 서비스가 연결되면 이곳에서 확인할 수 있어요.")
+            Text("새로운 소식이 도착하면 이곳에서 알려드릴게요.")
                 .font(.custom("Pretendard-Regular", size: 14)).foregroundStyle(.gray).padding(.top, 8)
             Spacer()
         }
-        .frame(maxWidth: .infinity).background(Color.white.ignoresSafeArea())
+        .frame(maxWidth: .infinity).background(canvas.ignoresSafeArea())
         .preferredColorScheme(.light)
+    }
+
+    private struct NotificationPressStyle: ButtonStyle {
+        let reduceMotion: Bool
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.96 : 1)
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 1), value: configuration.isPressed)
+        }
     }
 }
 
@@ -942,7 +1383,10 @@ struct OnboardingFlowView: View {
                             .frame(maxWidth: .infinity).frame(height: proxy.size.height * 0.43)
                             .padding(.top, 18)
                     } else {
-                        Spacer().frame(maxWidth: .infinity).frame(height: proxy.size.height * 0.43)
+                        Image("LoginHeroBottle").resizable().scaledToFit()
+                            .scaleEffect(x: -1)
+                            .frame(maxWidth: .infinity).frame(height: proxy.size.height * 0.43)
+                            .padding(.top, 18)
                     }
                 }
                 VStack(alignment: .leading, spacing: 14) {

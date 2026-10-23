@@ -1,0 +1,51 @@
+{
+  "source": "https://data.seoul.go.kr/dataList/OA-15069/F/1/datasetView.do",
+  "sourceDate": "2025-11",
+  "originalFile": "seoul-bins-202511.xlsx",
+  "sha256": "30d31e4e9770c6c6d737ccba6e3247e516736ebf01328189eb88c72fe536ce49",
+  "count": 2,
+  "notice": "검증용 소량 샘플. 주소 일치 좌표 추정이며 실제 쓰레기통 위치가 아닙니다.",
+  "skipped": [
+    {
+      "serial": "3295",
+      "reason": "자치구/설치 주소 없음"
+    },
+    {
+      "serial": "3368",
+      "reason": "자치구/설치 주소 없음"
+    }
+  ],
+  "items": [
+    {
+      "id": "seoul-202511-3",
+      "district": "종로구",
+      "address": "자하문로4길 6",
+      "detail": "스타벅스 앞",
+      "locationType": "도로변(횡단보도 포함)",
+      "wasteType": "general",
+      "latitude": 37.5771689,
+      "longitude": 126.9726386,
+      "sourceDate": "2025-11",
+      "coordinateQuality": "address-match-estimate",
+      "coordinateSource": "OpenStreetMap Nominatim",
+      "coordinateAddress": "스타벅스 경복궁역점, 6, 자하문로4길, 내자동, 사직동, 종로구, 서울특별시, 03044, 대한민국"
+    },
+    {
+      "id": "seoul-202511-7",
+      "district": "종로구",
+      "address": "효자로13길 45",
+      "detail": "청와대 사랑채 분수대 광장",
+      "locationType": "도로변(횡단보도 포함)",
+      "wasteType": "general",
+      "latitude": 37.582559,
+      "longitude": 126.9729401,
+      "sourceDate": "2025-11",
+      "coordinateQuality": "address-match-estimate",
+      "coordinateSource": "OpenStreetMap Nominatim",
+      "coordinateAddress": "청와대 사랑채, 45, 효자로13길, 효자동, 청운효자동, 종로구, 서울특별시, 03042, 대한민국"
+    }
+  ],
+  "coordinateSource": "OpenStreetMap Nominatim (https://nominatim.openstreetmap.org)",
+  "coordinateLicense": "OpenStreetMap contributors, ODbL 1.0",
+  "generatedAt": "2026-10-24"
+}

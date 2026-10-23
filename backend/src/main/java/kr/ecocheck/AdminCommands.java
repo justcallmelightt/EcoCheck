@@ -172,8 +172,44 @@ final class AdminCommands {
               + ". 결과 검토 후 --import-bins로 적재하세요.");
       return;
     }
+    if (args[0].equals("--geocode-bins-osm") && args.length >= 3) {
+      Path input = Path.of(args[1]), output = Path.of(args[2]);
+      if (input.toAbsolutePath().normalize().equals(output.toAbsolutePath().normalize()))
+        throw new IllegalArgumentException("원본 보존을 위해 출력 파일을 다르게 지정하세요.");
+      if (Files.exists(output)) throw new IllegalArgumentException("출력 파일이 이미 있습니다. 새 파일명을 사용하세요.");
+      var root = JsonParser.parseString(Files.readString(input, StandardCharsets.UTF_8)).getAsJsonObject();
+      int max = args.length >= 4 ? Integer.parseInt(args[3]) : 10;
+      if (max < 1 || max > 100) throw new IllegalArgumentException("OSM 시험은 호출 수를 1~100으로 제한합니다.");
+      String district = args.length >= 5 ? args[4] : "";
+      var geocoder = new OpenStreetMapGeocoder();
+      Map<String, Optional<double[]>> cache = new HashMap<>();
+      int calls = 0, located = 0, ambiguous = 0;
+      for (var row : root.getAsJsonArray("items")) {
+        var item = row.getAsJsonObject();
+        var bin = new Gson().fromJson(item, Bin.class);
+        validate(bin);
+        if ((!district.isEmpty() && !district.equals(bin.district())) || bin.latitude() != null) continue;
+        String address = "서울특별시 " + bin.district() + " " + bin.address();
+        Optional<double[]> point = cache.get(address);
+        if (point == null) {
+          if (calls >= max) continue;
+          point = geocoder.geocode(address);
+          if (point.isPresent()) cache.put(address, point);
+          calls++;
+        }
+        if (point.isEmpty()) { ambiguous++; continue; }
+        item.addProperty("latitude", point.get()[0]);
+        item.addProperty("longitude", point.get()[1]);
+        located++;
+      }
+      Files.writeString(output, new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(root),
+          StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+      System.out.println("OSM API 호출=" + calls + ", 좌표 생성=" + located + ", 미확정=" + ambiguous
+          + ". 결과를 검토한 뒤 --import-bins로 적재하세요.");
+      return;
+    }
     throw new IllegalArgumentException(
-        "명령: --check-apis | --check-naver | --check-gemini-image FILE.jpg | --import-bins FILE.json | --geocode-bins INPUT.json OUTPUT.json"
+        "명령: --check-apis | --check-naver | --check-gemini-image FILE.jpg | --import-bins FILE.json | --geocode-bins INPUT.json OUTPUT.json | --geocode-bins-osm INPUT.json OUTPUT.json"
             + " [최대호출수=10] [자치구]");
   }
 

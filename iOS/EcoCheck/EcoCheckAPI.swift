@@ -153,6 +153,9 @@ private enum DeviceToken {
 
 actor EcoCheckAPI {
     static let shared = EcoCheckAPI()
+#if DEBUG
+    private static let developmentBaseURL = "http://172.16.21.186:8080"
+#endif
 
     static func validBaseURL(_ text: String) -> URL? {
         guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
@@ -212,7 +215,13 @@ actor EcoCheckAPI {
 
     private func request<T: Decodable>(_ path: String, method: String = "GET", body: Data? = nil,
                                        query: [URLQueryItem] = [], timeout: TimeInterval = 15) async throws -> T {
-        let setting = UserDefaults.standard.string(forKey: "EcoCheckServerURL") ?? ""
+        let configuredURL = UserDefaults.standard.string(forKey: "EcoCheckServerURL") ?? ""
+#if DEBUG
+        // Keep local-device scanning usable before the user has saved the dev URL in Settings.
+        let setting = configuredURL.isEmpty ? Self.developmentBaseURL : configuredURL
+#else
+        let setting = configuredURL
+#endif
         guard let base = Self.validBaseURL(setting),
               var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false) else { throw APIError.configuration }
         if !query.isEmpty { components.queryItems = query }

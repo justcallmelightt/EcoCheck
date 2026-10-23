@@ -6,6 +6,7 @@ Workbench Home → MySQL Connections에서 실행 중인 MySQL Server의 host/po
 
 1. File → Open SQL Script → `sql/schema.sql` 선택.
 2. 전체 SQL 실행(번개 버튼). `ecocheck_v2_scans`, `ecocheck_v2_bins`가 생겼는지 SCHEMAS 새로고침.
+   기존 `ecocheck_v2_scans` 테이블을 이미 사용 중이면 `sql/migrations/002_scan_source.sql`도 한 번 실행해 AI 기록과 수동 기록의 구분 컬럼을 추가합니다.
 3. 파일 하단의 전용 계정 예시에서 비밀번호를 본인이 정한 값으로 바꾸고 주석을 해제해 별도로 실행합니다. 기존 계정이면 새 계정을 만들 필요는 없습니다.
 4. `.env.example`을 `.env`로 복사하고 실제 DB URL/계정/비밀번호를 설정합니다.
 
@@ -82,6 +83,16 @@ java -jar target/ecocheck-server-0.1.0.jar --geocode-bins data/seoul-bins-202511
 마지막 자치구 인수는 선택 사항입니다. 중구를 지정하면 서울시청 근처 시연용 좌표부터 준비할 수 있습니다. 주소 중복은 한 번만 호출합니다. 전체 정규화본에는 서로 다른 주소 3,926개가 있으므로 전체 변환 전 API 한도·비용을 확인하세요. 복수 후보/검색 실패는 좌표를 임의 선택하지 않습니다. 주소 중심 좌표는 시설물 실제 위치와 다를 수 있으므로 상세 위치와 대조하세요.
 
 계속 변환하려면 이전 출력 JSON을 입력으로 사용하고 새로운 출력명을 지정합니다. 이미 좌표가 있는 항목은 건너뜁니다. 현재 실행 내에서 주소를 캐시합니다.
+
+네이버 키 없이 OSM Nominatim으로 시험할 수도 있습니다. 공개 서버 정책을 지키기 위해 호출 간격을 1.1초로 제한하고 한 번에 최대 100개 주소까지만 허용합니다. 사용자-Agent를 포함하며, 결과가 없거나 복수이면 임의 좌표를 넣지 않습니다. 먼저 중구 10개 주소만 새 파일로 시험하세요:
+
+```sh
+cd backend
+./mvnw package
+java -jar target/ecocheck-server-0.1.0.jar --geocode-bins-osm data/seoul-bins-202511.json data/seoul-bins-osm-junggu-test.json 10 중구
+```
+
+Nominatim은 기본 용도에서 초당 1회 이하, 식별 가능한 User-Agent, 캐시, 결과 재사용을 요구합니다. 이 구현은 중복 주소를 요청당 한 번만 검색하지만 여러 번 실행하면 기존 캐시 파일을 자동 재사용하지 않습니다. 데이터셋 전체 주소 수천 건은 공개 인스턴스에 요청하지 말고, 정책에 맞는 별도 서비스나 로컬 주소 데이터로 처리하세요. OSM 지오코딩 결과에는 OpenStreetMap 기여자 표시와 ODbL 조건이 적용될 수 있습니다. 생성된 주소 중심 좌표는 쓰레기통의 실제 위치가 아닐 수 있으므로 지도에 공개하기 전에 현장 설명과 대조하고 출처를 표시하세요.
 
 결과를 검토한 뒤 DB로 적재합니다:
 

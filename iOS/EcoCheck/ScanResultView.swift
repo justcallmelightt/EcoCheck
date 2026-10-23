@@ -5,10 +5,7 @@ struct ScanResultView: View {
     var onScanAnother: (() -> Void)? = nil
     @State private var analysis: AnalysisResult?
     @State private var analysisError: String?
-    @State private var saveMessage: String?
     @State private var isAnalyzing = false
-    @State private var isSaving = false
-    @State private var isSaved = false
     @State private var analysisTask: Task<Void, Never>?
     private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
 
@@ -16,37 +13,81 @@ struct ScanResultView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    if let image = UIImage(data: imageData) {
-                        Image(uiImage: image).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: 270)
-                            .padding(.horizontal, 10)
-                    }
                     if let result = analysis {
-                        HStack(alignment: .center, spacing: 13) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 18, weight: .bold)).frame(width: 48, height: 48)
-                                .background(lime.opacity(0.55), in: Circle())
-                            Text("정확하게 인식했어요!").font(.custom("Pretendard-SemiBold", size: 17))
-                            Spacer()
+                        ZStack(alignment: .bottomTrailing) {
+                            if let image = UIImage(data: imageData) {
+                                Image(uiImage: image).resizable().scaledToFill()
+                                    .frame(maxWidth: .infinity).frame(height: 230).clipped()
+                            }
+                            VStack(alignment: .trailing, spacing: 7) {
+                                Text(result.material.uppercased()).font(.custom("Pretendard-SemiBold", size: 13))
+                                    .foregroundStyle(.blue).padding(.horizontal, 15).padding(.vertical, 7)
+                                    .background(Color.blue.opacity(0.17), in: Capsule())
+                                Text(result.name).font(.custom("Pretendard-Bold", size: 24))
+                                Text(result.material).font(.custom("Pretendard-SemiBold", size: 15)).foregroundStyle(.secondary)
+                            }
+                            .padding(18)
                         }
-                        .padding(14).background(Color(red: 228/255, green: 249/255, blue: 210/255), in: Capsule())
+                        .frame(height: 230).frame(maxWidth: .infinity)
+                        .background(Color(red: 244/255, green: 248/255, blue: 247/255), in: RoundedRectangle(cornerRadius: 22))
+                        .clipShape(RoundedRectangle(cornerRadius: 22))
+
+                        HStack(spacing: 12) {
+                            Image("HistoryMascot").resizable().scaledToFit().frame(width: 82, height: 62)
+                            Text("정확하게 인식했어요!").font(.custom("Pretendard-Bold", size: 17))
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 10).frame(height: 68)
+                        .background(Color(red: 228/255, green: 249/255, blue: 210/255), in: Capsule())
                         .padding(.top, 10)
 
-                        HStack { Text("배출 분류").foregroundStyle(.secondary); Spacer(); Text(result.name).fontWeight(.semibold) }
+                        HStack { Text("배출 분류").foregroundStyle(.secondary); Spacer(); Text(result.name).font(.custom("Pretendard-SemiBold", size: 15)) }
                             .padding(.vertical, 18).overlay(alignment: .bottom) { Rectangle().fill(Color(.separator).opacity(0.35)).frame(height: 1) }
-                        HStack { Text("재질").foregroundStyle(.secondary); Spacer(); Text(result.material).fontWeight(.medium) }
+                        HStack { Text("재질").foregroundStyle(.secondary); Spacer(); Text(result.material).font(.custom("Pretendard-SemiBold", size: 15)) }
                             .padding(.vertical, 18).overlay(alignment: .bottom) { Rectangle().fill(Color(.separator).opacity(0.35)).frame(height: 1) }
                         HStack(spacing: 13) {
                             Image(systemName: "lightbulb").font(.system(size: 20)).foregroundStyle(.secondary)
-                            Text("라벨을 떼고, 내용물을 비워주세요").font(.custom("Pretendard-Medium", size: 14)).foregroundStyle(.secondary)
+                            Text(result.reason.isEmpty ? "재질별 안내를 확인해주세요" : result.reason).font(.custom("Pretendard-Medium", size: 14)).foregroundStyle(.secondary)
                             Spacer(minLength: 0)
                         }
-                        .padding(18).background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+                        .padding(16).background(Color(red: 243/255, green: 243/255, blue: 245/255), in: Capsule())
                         .padding(.top, 22)
-                        Text(result.reason).font(.custom("Pretendard-Regular", size: 14)).foregroundStyle(.secondary).padding(.top, 16)
                     } else if let analysisError {
-                        ContentUnavailableView("인식하지 못했어요", systemImage: "questionmark.circle", description: Text(analysisError))
-                        Button("다시 분석") { startAnalysis() }.disabled(isAnalyzing)
-                        NavigationLink("하나씩 선택하기") { ManualMaterialSelectionView() }
+                        let multipleItems = analysisError.localizedCaseInsensitiveContains("여러") ||
+                            analysisError.localizedCaseInsensitiveContains("multiple") ||
+                            analysisError.localizedCaseInsensitiveContains("하나씩")
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 52)
+                            Image("HistoryMascot").resizable().scaledToFit().frame(width: 122, height: 96)
+                            Text("?").font(.system(size: 34, weight: .bold)).foregroundStyle(.secondary).offset(x: 55, y: -73)
+                                .frame(height: 0)
+                            Text(multipleItems ? "한 번에 하나씩 찍어주세요" : "인식하지 못했어요")
+                                .font(.custom("Pretendard-Bold", size: 24)).padding(.top, 28)
+                            Text(multipleItems ? "여러 개가 한 화면에 있으면 정확하게 분석하기 어려워요." : analysisError)
+                                .font(.custom("Pretendard-Regular", size: 14)).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center).padding(.top, 8)
+                            VStack(spacing: 0) {
+                                tipRow("1", "밝은 곳에서 찍어주세요")
+                                Divider()
+                                tipRow("2", "물체를 화면 가운데에 두세요")
+                                Divider()
+                                tipRow("3", multipleItems ? "한 개만 화면 안에 맞춰주세요" : "한 번에 하나씩 촬영해주세요")
+                            }
+                            .padding(.horizontal, 16).padding(.top, 42)
+                            Spacer(minLength: 38)
+                            Button("다시 찍기") { onScanAnother?() }
+                                .font(.custom("Pretendard-SemiBold", size: 16)).foregroundStyle(.white)
+                                .frame(maxWidth: .infinity, minHeight: 56)
+                                .background(Color(red: 34/255, green: 34/255, blue: 34/255), in: Capsule())
+                            NavigationLink { ManualMaterialSelectionView() } label: {
+                                Text("목록에서 직접 고르기")
+                                    .font(.custom("Pretendard-SemiBold", size: 16)).foregroundStyle(.black)
+                                    .frame(maxWidth: .infinity, minHeight: 54)
+                                    .overlay(Capsule().stroke(Color(.separator).opacity(0.5), lineWidth: 1))
+                            }
+                            .padding(.top, 10)
+                        }
+                        .frame(minHeight: 590)
                     } else if isAnalyzing {
                         VStack(spacing: 18) {
                             ProgressView().controlSize(.large).tint(lime)
@@ -65,7 +106,6 @@ struct ScanResultView: View {
                         }
                         .padding(18).background(.white, in: RoundedRectangle(cornerRadius: 20)).padding(.top, 18)
                     }
-                    if let saveMessage { Text(saveMessage).font(.footnote).foregroundStyle(.secondary).padding(.top, 12) }
                     Text("AI 결과는 틀릴 수 있어요. 배출 전에 지역별 안내를 확인해주세요.")
                         .font(.footnote).foregroundStyle(.secondary).padding(.top, 16)
                 }
@@ -73,13 +113,6 @@ struct ScanResultView: View {
             }
             if let result = analysis {
                 VStack(spacing: 9) {
-                    Button { Task { await save(result) } } label: {
-                        Text(isSaved ? "기록 저장 완료" : "분리배출 기록 저장")
-                            .font(.custom("Pretendard-SemiBold", size: 16))
-                            .frame(maxWidth: .infinity, minHeight: 52)
-                    }
-                    .disabled(isSaved || isSaving || !result.saveAllowed)
-                    .buttonStyle(.borderedProminent).tint(lime).foregroundStyle(.black)
                     NavigationLink("분리배출 방법 보기") { GuideSteps(guide: result.guide) }
                         .font(.custom("Pretendard-SemiBold", size: 16)).foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 56)
@@ -96,9 +129,29 @@ struct ScanResultView: View {
             }
         }
         .background(.white, ignoresSafeAreaEdges: .all)
-        .navigationTitle("인식결과")
+        .overlay {
+            if isAnalyzing {
+                AnalysisLoadingOverlay(imageData: imageData) {
+                    analysisTask?.cancel()
+                    onScanAnother?()
+                }
+                .ignoresSafeArea()
+                .transition(.opacity)
+            }
+        }
+        .toolbar(isAnalyzing ? .hidden : .visible, for: .navigationBar)
+        .navigationTitle(isAnalyzing ? "" : "인식결과")
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { analysisTask?.cancel() }
+    }
+
+    private func tipRow(_ number: String, _ text: String) -> some View {
+        HStack(spacing: 14) {
+            Text(number).font(.custom("Pretendard-Bold", size: 16)).foregroundStyle(Color.gray.opacity(0.55))
+            Text(text).font(.custom("Pretendard-SemiBold", size: 15))
+            Spacer()
+        }
+        .frame(height: 52)
     }
 
     private func startAnalysis() {
@@ -131,32 +184,293 @@ struct ScanResultView: View {
         throw APIError.server("사진 크기를 줄이지 못했어요. 다른 사진을 선택해주세요.")
     }
 
-    @MainActor private func save(_ result: AnalysisResult) async {
-        guard !isSaved && !isSaving else { return }
-        isSaving = true
-        defer { isSaving = false }
-        do {
-            try await LocalScanStore.shared.save(id: result.id, guide: result.guide,
-                                                 source: result.source, modelVersion: result.modelVersion)
-            isSaved = true
-            saveMessage = "이 아이폰에 기록을 저장했어요."
-        } catch { saveMessage = "저장하지 못했어요. \(error.localizedDescription)" }
+}
+
+private struct AnalysisLoadingOverlay: View {
+    let imageData: Data
+    let onCancel: () -> Void
+
+    private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                if let photo = UIImage(data: imageData) {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                }
+
+                Color.black.opacity(0.66)
+
+                VStack(spacing: 0) {
+                    HStack {
+                        Button(action: onCancel) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 23, weight: .medium))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Spacer()
+                        Image(systemName: "bolt.slash")
+                            .font(.system(size: 20, weight: .medium))
+                            .frame(width: 44, height: 44)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.top, max(geometry.safeAreaInsets.top, 54) + 8)
+
+                    Text("쓰레기를 화면 안에 맞춰주세요")
+                        .font(.custom("Pretendard-Medium", size: 14))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .padding(.top, 34)
+
+                    Spacer(minLength: 18)
+
+                    ZStack {
+                        ScanCornerMarks()
+                            .stroke(lime, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .frame(width: min(geometry.size.width - 104, 286), height: 300)
+
+                        Image("HistoryMascot")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 104, height: 76)
+                            .shadow(color: lime.opacity(0.35), radius: 18)
+                    }
+
+                    Text("분석하는 중")
+                        .font(.custom("Pretendard-Bold", size: 20))
+                        .foregroundStyle(.white)
+                        .padding(.top, 12)
+                    Text("재질과 오염 여부를 보고 있어요")
+                        .font(.custom("Pretendard-Regular", size: 13))
+                        .foregroundStyle(.white.opacity(0.76))
+                        .padding(.top, 6)
+
+                    GeometryReader { bar in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.white.opacity(0.24))
+                            Capsule().fill(lime).frame(width: bar.size.width * 0.68)
+                        }
+                    }
+                    .frame(width: 174, height: 5)
+                    .padding(.top, 15)
+                    Text("68%")
+                        .font(.custom("Pretendard-Medium", size: 10))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .padding(.top, 5)
+
+                    Spacer(minLength: 22)
+
+                    Text("한번에 하나씩 촬영하면\n더 정확하게 분석할 수 있어요")
+                        .font(.custom("Pretendard-Medium", size: 14))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .foregroundStyle(.white.opacity(0.82))
+                        .padding(.bottom, max(geometry.safeAreaInsets.bottom, 28) + 12)
+                }
+                .padding(.horizontal, 28)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .background(.black)
+        }
+        .background(.black)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct ScanCornerMarks: Shape {
+    func path(in rect: CGRect) -> Path {
+        let length: CGFloat = 34
+        let radius: CGFloat = 14
+        var path = Path()
+
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY + length))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + radius, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX + length, y: rect.minY))
+
+        path.move(to: CGPoint(x: rect.maxX - length, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + radius), control: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + length))
+
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY - length))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - radius))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + radius, y: rect.maxY), control: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + length, y: rect.maxY))
+
+        path.move(to: CGPoint(x: rect.maxX - length, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.maxY - radius), control: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - length))
+        return path
     }
 }
 
 struct GuideSteps: View {
     let guide: RecyclingGuide
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingCompletion = false
+    private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(Array(guide.steps.enumerated()), id: \.offset) { index, step in
-                HStack(alignment: .top, spacing: 12) {
-                    Text("\(index + 1)").font(.headline).frame(width: 28, height: 28)
-                        .background(Color.green.opacity(0.15), in: Circle())
-                    Text(step)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 15) {
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 19, weight: .medium))
+                            .frame(width: 44, height: 44).contentShape(Rectangle())
+                    }
+                    Spacer()
+                    Text("분리배출 방법").font(.custom("Pretendard-Bold", size: 21))
+                    Spacer()
+                    Color.clear.frame(width: 44, height: 44)
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 2)
+
+                Image(guideImageName(guide.id))
+                    .resizable().scaledToFit().frame(maxWidth: .infinity).frame(height: 210)
+                    .background(Color(red: 245/255, green: 247/255, blue: 249/255), in: RoundedRectangle(cornerRadius: 22))
+                Text(guide.name).font(.custom("Pretendard-Bold", size: 27)).tracking(-0.5)
+                Text("재질: \(guide.material)").font(.custom("Pretendard-Medium", size: 15)).foregroundStyle(.secondary)
+                Text("분리배출 방법").font(.custom("Pretendard-Bold", size: 20)).padding(.top, 17)
+                ForEach(Array(guide.steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .top, spacing: 15) {
+                        Text(String(format: "%02d", index + 1))
+                            .font(.custom("Pretendard-Bold", size: 17)).frame(width: 32)
+                        Text(step).font(.custom("Pretendard-Medium", size: 15)).lineSpacing(4)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(red: 245/255, green: 247/255, blue: 249/255), in: RoundedRectangle(cornerRadius: 17))
+                }
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "lightbulb")
+                    Text(guide.note).font(.custom("Pretendard-Regular", size: 14)).lineSpacing(4)
+                }
+                .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+                .background(lime.opacity(0.35), in: RoundedRectangle(cornerRadius: 17))
+                Button { showingCompletion = true } label: {
+                    Text("분리배출 완료")
+                        .font(.custom("Pretendard-SemiBold", size: 17))
+                        .foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 56)
+                        .background(Color(red: 34/255, green: 34/255, blue: 34/255), in: Capsule())
+                }
+                .padding(.top, 14)
+            }
+            .padding(.horizontal, 29).padding(.top, 20).padding(.bottom, 40)
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .background(.white)
+        .navigationDestination(isPresented: $showingCompletion) {
+            RecyclingCompleteView(guide: guide)
+        }
+    }
+}
+
+private struct RecyclingCompleteView: View {
+    let guide: RecyclingGuide
+    @Environment(\.dismiss) private var dismiss
+    @State private var isSaving = false
+    @State private var saved = false
+    @State private var errorMessage: String?
+    @State private var requestId = UUID().uuidString.lowercased()
+    private let lime = Color(red: 199/255, green: 248/255, blue: 37/255)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button { dismiss() } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                    .accessibilityLabel("뒤로")
+                Spacer()
+                Text("분리배출 방법").font(.custom("Pretendard-Bold", size: 21))
+                Spacer()
+                Color.clear.frame(width: 44, height: 44)
+            }
+            .foregroundStyle(.black).padding(.horizontal, 17).padding(.top, 20)
+            Spacer(minLength: 30)
+            VStack(spacing: 0) {
+                HStack {
+                    Text(guide.name).font(.custom("Pretendard-Bold", size: 25))
+                    Spacer()
+                    Text(guide.material).font(.custom("Pretendard-SemiBold", size: 16))
+                        .padding(.horizontal, 18).padding(.vertical, 8).background(lime, in: Capsule())
+                }
+                .padding(.horizontal, 27).frame(height: 112)
+                Text("올바른 분리배출이에요")
+                    .font(.custom("Pretendard-Bold", size: 18)).padding(.top, 20).padding(.bottom, 10)
+                VStack(spacing: 0) {
+                    metricRow("절약한 CO₂", value: "미산정", symbol: "leaf")
+                    Divider().padding(.horizontal, 18)
+                    metricRow("지급 포인트", value: "미제공", symbol: "plus.circle")
+                    Divider().padding(.horizontal, 18)
+                    HStack {
+                        Image(systemName: "info.circle").foregroundStyle(.secondary)
+                        Text("분리배출 방법").font(.custom("Pretendard-Medium", size: 15)).foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 19).frame(height: 70)
+                }
+                .background(.white, in: RoundedRectangle(cornerRadius: 24))
+                Text("실제 배출을 확인하거나 CO₂·포인트를 산정하는 기능은 아직 연결되지 않았어요.")
+                    .font(.custom("Pretendard-Regular", size: 13)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).padding(.horizontal, 30).padding(.top, 16)
+                if let errorMessage {
+                    Text(errorMessage).font(.custom("Pretendard-Regular", size: 13)).foregroundStyle(.red).padding(.top, 10)
                 }
             }
-            Text(guide.note).font(.footnote).foregroundStyle(.secondary)
+            .padding(.horizontal, 17)
+            Spacer(minLength: 30)
+            Button { Task { await saveCompletion() } } label: {
+                Text(saved ? "기록했어요" : "확인")
+                    .font(.custom("Pretendard-SemiBold", size: 17)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 64)
+                    .background(Color(red: 34/255, green: 34/255, blue: 34/255), in: Capsule())
+            }
+            .disabled(isSaving || saved).padding(.horizontal, 29).padding(.bottom, 32)
         }
+        .background(Color(red: 243/255, green: 243/255, blue: 245/255).ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+        .preferredColorScheme(.light)
+    }
+
+    private func metricRow(_ label: String, value: String, symbol: String) -> some View {
+        HStack {
+            Image(systemName: symbol).font(.system(size: 19)).frame(width: 27).foregroundStyle(.secondary)
+            Text(label).font(.custom("Pretendard-Medium", size: 16)).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).font(.custom("Pretendard-SemiBold", size: 16))
+        }
+        .padding(.horizontal, 19).frame(height: 74)
+    }
+
+    @MainActor private func saveCompletion() async {
+        guard !isSaving && !saved else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await LocalScanStore.shared.save(id: requestId, guide: guide, source: "manual-complete", modelVersion: "local")
+            saved = true
+            try? await Task.sleep(for: .milliseconds(550))
+            dismiss()
+        } catch {
+            errorMessage = "이 기기에 완료 기록을 저장하지 못했어요. 다시 시도해주세요."
+        }
+    }
+}
+
+private func guideImageName(_ id: String) -> String {
+    switch id {
+    case "pet_bottle": "ManualPetBottle"
+    case "aluminum_can", "steel_can": "ManualCan"
+    case "glass_bottle": "ManualGlass"
+    case "cardboard", "paper": "ManualPaper"
+    default: "ManualPlastic"
     }
 }
 
@@ -449,17 +763,104 @@ private struct MissingGuideView: View {
 }
 
 struct GuideListView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var guides: [RecyclingGuide] = []
     @State private var errorMessage: String?
+    @State private var search = ""
+    @State private var category = "전체"
+    private let categories = ["전체", "페트병", "캔", "종이", "유리", "플라스틱"]
+    private var filtered: [RecyclingGuide] {
+        guides.filter { guide in
+            let matchesCategory = category == "전체" ||
+                (category == "페트병" && guide.id == "pet_bottle") ||
+                (category == "캔" && guide.id.contains("can")) ||
+                (category == "종이" && ["paper", "cardboard"].contains(guide.id)) ||
+                (category == "유리" && guide.id == "glass_bottle") ||
+                (category == "플라스틱" && guide.id == "plastic_container")
+            return matchesCategory && (search.isEmpty || guide.name.localizedCaseInsensitiveContains(search) || guide.material.localizedCaseInsensitiveContains(search))
+        }
+    }
     var body: some View {
-        List {
-            Section { Text("직접 선택하는 기본 안내예요. AI 판별 결과로 저장되지 않아요.").font(.footnote) }
-            if let errorMessage { Text(errorMessage) }
-            ForEach(guides) { guide in
-                NavigationLink(guide.name) { ScrollView { GuideSteps(guide: guide).padding() }.navigationTitle(guide.name) }
+        VStack(spacing: 0) {
+            ZStack {
+                Text("분리배출 가이드")
+                    .font(.custom("Pretendard-SemiBold", size: 17))
+                    .foregroundStyle(.black)
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 19, weight: .medium))
+                            .foregroundStyle(.black)
+                            .frame(width: 40, height: 40)
+                            .background(.white, in: Circle())
+                            .overlay(Circle().stroke(Color(red: 225/255, green: 227/255, blue: 230/255), lineWidth: 0.8))
+                            .shadow(color: .black.opacity(0.035), radius: 5, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("뒤로")
+                    Spacer()
+                }
+            }
+            .frame(height: 60)
+            .padding(.horizontal, 14)
+            .background(.white)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                Text("무엇을 버리시나요?")
+                    .font(.custom("Pretendard-Bold", size: 27)).tracking(-0.5).padding(.bottom, 23)
+                HStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 20))
+                    TextField("분리배출 품목 검색", text: $search)
+                        .font(.custom("Pretendard-Regular", size: 16))
+                }
+                .padding(.horizontal, 18).frame(height: 56)
+                .background(Color(red: 245/255, green: 247/255, blue: 249/255), in: Capsule())
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 9) {
+                        ForEach(categories, id: \.self) { option in
+                            Button { category = option } label: {
+                                Text(option).font(.custom("Pretendard-SemiBold", size: 14))
+                                    .foregroundStyle(category == option ? .white : .black)
+                                    .padding(.horizontal, 18).frame(height: 38)
+                                    .background(category == option ? Color.black : Color(red: 245/255, green: 247/255, blue: 249/255), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.vertical, 23)
+                if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+                ForEach(filtered) { guide in
+                    NavigationLink { GuideSteps(guide: guide) } label: {
+                        HStack(spacing: 16) {
+                            Image(guideImageName(guide.id)).resizable().scaledToFit()
+                                .frame(width: 58, height: 58)
+                                .background(Color(red: 245/255, green: 247/255, blue: 249/255), in: RoundedRectangle(cornerRadius: 14))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(guide.name).font(.custom("Pretendard-SemiBold", size: 17))
+                                Text(guide.material).font(.custom("Pretendard-Regular", size: 13)).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(.gray)
+                        }
+                        .foregroundStyle(.black).frame(height: 77)
+                    }
+                    .buttonStyle(.plain)
+                }
+                if filtered.isEmpty && errorMessage == nil {
+                    Text("일치하는 품목이 없어요.").font(.custom("Pretendard-Medium", size: 15))
+                        .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.top, 40)
+                }
+                Text("품목별 기준은 지역마다 다를 수 있어요. 배출 전 수거함 안내를 확인해주세요.")
+                    .font(.custom("Pretendard-Regular", size: 13)).foregroundStyle(.secondary)
+                    .padding(.top, 28)
+                }
+                .padding(.horizontal, 29).padding(.top, 30).padding(.bottom, 50)
             }
         }
-        .navigationTitle("기본 분리배출 안내")
+        .background(Color.white, ignoresSafeAreaEdges: .all)
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             do { guides = try RecyclingGuide.load() }
             catch { errorMessage = error.localizedDescription }

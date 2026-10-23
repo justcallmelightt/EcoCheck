@@ -9,14 +9,17 @@ struct ContentView: View {
     @State private var showingSource = false
     @State private var showingPhotoLibrary = false
     @State private var showingCamera = false
+    @State private var showingCameraPermission = false
     @State private var showingManual = false
     @State private var showingHistory = false
     @State private var showingSettings = false
+    @State private var shouldReplayOnboarding = false
     @State private var showingProfile = false
     @State private var showingNotifications = false
     @State private var showingAccount = false
     @State private var routeToAccountAfterCover = false
     @State private var showingMap = false
+    @State private var showingChallenge = false
     @State private var selectedTab = "홈"
     @State private var photoError: String?
     @State private var loadTask: Task<Void, Never>?
@@ -67,11 +70,45 @@ struct ContentView: View {
                 selectedTab = destination
                 if destination == "지도" { showingMap = true }
                 if destination == "스캔" { showingSource = true }
-                if destination == "마이페이지" { showingSettings = true }
+                if destination == "마이페이지" { showingProfile = true }
             }
         }
-        .fullScreenCover(isPresented: $showingSettings) {
-            ServerSettingsView()
+        .fullScreenCover(isPresented: $showingSettings, onDismiss: {
+            if shouldReplayOnboarding {
+                shouldReplayOnboarding = false
+                showingOnboarding = true
+            }
+        }) {
+            ServerSettingsView(onReplayOnboarding: {
+                hasSeenOnboarding = false
+                hasSeenLoginEntry = false
+                shouldReplayOnboarding = true
+            })
+        }
+        .fullScreenCover(isPresented: $showingProfile, onDismiss: {
+            if routeToAccountAfterCover {
+                routeToAccountAfterCover = false
+                showingAccount = true
+            }
+        }) {
+            ProfileView { destination in
+                showingProfile = false
+                switch destination {
+                case "기록": showingHistory = true
+                case "지도": showingMap = true
+                case "스캔": showingSource = true
+                case "설정": showingSettings = true
+                case "알림": showingNotifications = true
+                case "계정": routeToAccountAfterCover = true
+                default: selectedTab = "홈"
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showingNotifications) {
+            NotificationsView()
+        }
+        .fullScreenCover(isPresented: $showingChallenge) {
+            ChallengeEntryView(onClose: { showingChallenge = false })
         }
         .fullScreenCover(isPresented: $showingAccount) { AccountFlowView() }
         .fullScreenCover(isPresented: $showingOnboarding, onDismiss: {
@@ -87,13 +124,19 @@ struct ContentView: View {
                 showingOnboarding = false
             }
         }
+        .fullScreenCover(isPresented: $showingCameraPermission) {
+            CameraPermissionIntroView(onAllow: {
+                showingCameraPermission = false
+                Task { await openCamera() }
+            }, onSkip: { showingCameraPermission = false })
+        }
         .fullScreenCover(isPresented: $showingMap) {
             BinMapView { destination in
                 showingMap = false
                 switch destination {
                 case "기록": showingHistory = true
                 case "스캔": showingSource = true
-                case "마이페이지": showingSettings = true
+                case "마이페이지": showingProfile = true
                 default: selectedTab = "홈"
                 }
             }
@@ -112,7 +155,7 @@ struct ContentView: View {
             }
         }
         .confirmationDialog("스캔할 사진 가져오기", isPresented: $showingSource, titleVisibility: .visible) {
-            Button("카메라로 촬영") { Task { await openCamera() } }
+            Button("카메라로 촬영") { showingCameraPermission = true }
             Button("앨범에서 선택") { showingPhotoLibrary = true }
             Button("재질 직접 선택") { showingManual = true }
             Button("취소", role: .cancel) { }
@@ -169,7 +212,7 @@ struct ContentView: View {
                 .position(x: 94 * scale, y: (logoTop + 28.5) * scale)
                 .accessibilityLabel("EcoCheck")
 
-            Button { showingSettings = true } label: {
+            Button { showingNotifications = true } label: {
                 Image("EcoBell").resizable().scaledToFit().frame(width: 25 * scale, height: 25 * scale)
                     .frame(width: 44 * scale, height: 44 * scale).contentShape(Rectangle())
             }
@@ -177,7 +220,7 @@ struct ContentView: View {
                 .position(x: 334.5 * scale, y: (52.5 + headerShift) * scale)
             .accessibilityLabel("알림")
 
-            Button { showingSettings = true } label: {
+            Button { showingProfile = true } label: {
                 Image("EcoMenu").resizable().scaledToFit().frame(width: 19 * scale, height: 16 * scale)
                     .frame(width: 36 * scale, height: 44 * scale).contentShape(Rectangle())
             }
@@ -247,9 +290,9 @@ struct ContentView: View {
                 .frame(width: 62 * scale, height: 19 * scale, alignment: .leading)
                 .position(x: (317.83 + 31) * scale, y: (276.85 + 9.5 + headerShift) * scale)
 
-            Button { showingSource = true } label: {
+            Button { showingChallenge = true } label: {
                 HStack(spacing: 0) {
-                    Text("지금 스캔하고\n분리배출을 확인해보세요!")
+                    Text("지금 스캔하고\n포인트를 받아보세요!")
                         .font(.custom("Pretendard-SemiBold", size: 22 * scale)).tracking(0.66 * scale)
                         .lineSpacing(0).multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
@@ -264,7 +307,7 @@ struct ContentView: View {
             }
             .buttonStyle(HomePressStyle(reduceMotion: reduceMotion))
             .position(x: 204 * scale, y: 690 * scale)
-            .accessibilityLabel("촬영하거나 사진을 선택해 분리배출 확인하기")
+            .accessibilityLabel("챌린지 확인하기")
 
             bottomBar(scale: scale, width: width, height: height)
         }
@@ -296,7 +339,7 @@ struct ContentView: View {
                 tabButton("EcoTabClock", "기록", scale: scale, action: { selectedTab = "기록"; showingHistory = true })
                 scanTab(scale: scale)
                 tabButton("EcoTabMap", "지도", scale: scale, action: { selectedTab = "지도"; showingMap = true })
-                tabButton("EcoTabProfile", "마이페이지", scale: scale, action: { selectedTab = "마이페이지"; showingSettings = true })
+                tabButton("EcoTabProfile", "마이페이지", scale: scale, action: { selectedTab = "마이페이지"; showingProfile = true })
             }
             .padding(.horizontal, 24 * scale)
             .padding(.bottom, 30 * scale)
@@ -354,6 +397,195 @@ struct ContentView: View {
         do {
             recycleCount = try await LocalScanStore.shared.all().count
         } catch { }
+    }
+}
+
+private struct ChallengeEntryView: View {
+    let onClose: () -> Void
+    @State private var showingRewardNotice = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let ink = Color(red: 21/255, green: 23/255, blue: 22/255)
+    private let muted = Color(red: 119/255, green: 126/255, blue: 123/255)
+    private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
+    private let progressGreen = Color(red: 153/255, green: 211/255, blue: 39/255)
+    private let missions: [(String, Int, Int, Int)] = [
+        ("페트병 라벨 떼고 배출하기", 2, 3, 10),
+        ("음료 캔 5개 배출하기", 1, 5, 15),
+        ("7일 연속 스캔하기", 4, 7, 30)
+    ]
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Button(action: onClose) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 19, weight: .medium))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(ChallengePressStyle(reduceMotion: reduceMotion))
+                        Spacer()
+                        Text("챌린지")
+                            .font(.custom("Pretendard-Bold", size: 20))
+                        Spacer()
+                        Color.clear.frame(width: 44, height: 44)
+                    }
+                    .foregroundStyle(ink)
+
+                    Text("이번 주 챌린지 · 3일 남음")
+                        .font(.custom("Pretendard-SemiBold", size: 15))
+                        .foregroundStyle(muted)
+                        .padding(.top, 29)
+
+                    HStack(alignment: .center, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("3")
+                                    .font(.custom("Pretendard-Bold", size: 70))
+                                    .tracking(-2.5)
+                                    .foregroundStyle(ink)
+                                Text("/ 5")
+                                    .font(.custom("Pretendard-Bold", size: 32))
+                                    .foregroundStyle(Color(red: 164/255, green: 170/255, blue: 167/255))
+                            }
+                            Text("2개만 더 하면\n보너스 30P를 받아요")
+                                .font(.custom("Pretendard-Regular", size: 18))
+                                .lineSpacing(3)
+                                .foregroundStyle(Color(red: 61/255, green: 65/255, blue: 63/255))
+                        }
+                        Spacer(minLength: 0)
+                        Image("HistoryMascot")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 118, height: 90)
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.top, 8)
+
+                    HStack(spacing: 6) {
+                        ForEach(0..<5, id: \.self) { index in
+                            Capsule()
+                                .fill(index < 3 ? progressGreen : Color(red: 226/255, green: 232/255, blue: 228/255))
+                                .frame(height: 8)
+                        }
+                    }
+                    .padding(.top, 25)
+
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("미션 완료!")
+                                .font(.custom("Pretendard-SemiBold", size: 13))
+                                .foregroundStyle(Color(red: 77/255, green: 113/255, blue: 37/255))
+                            Text("첫 유리병 배출하기")
+                                .font(.custom("Pretendard-Bold", size: 17))
+                                .foregroundStyle(ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        Spacer(minLength: 2)
+                        Button { showingRewardNotice = true } label: {
+                            Text("보상 받기")
+                                .font(.custom("Pretendard-SemiBold", size: 14))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 18)
+                                .frame(height: 40)
+                                .background(ink, in: Capsule())
+                        }
+                        .buttonStyle(ChallengePressStyle(reduceMotion: reduceMotion))
+                    }
+                    .padding(.horizontal, 20)
+                    .frame(height: 72)
+                    .background(lime, in: RoundedRectangle(cornerRadius: 20))
+                    .padding(.top, 24)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("진행 중")
+                            .font(.custom("Pretendard-Bold", size: 20))
+                            .foregroundStyle(ink)
+                        Text("3")
+                            .font(.custom("Pretendard-Bold", size: 20))
+                            .foregroundStyle(muted)
+                    }
+                    .padding(.top, 34)
+                    .padding(.bottom, 8)
+
+                    VStack(spacing: 0) {
+                        ForEach(missions, id: \.0) { mission in
+                            missionRow(mission)
+                            if mission.0 != missions.last?.0 {
+                                Rectangle()
+                                    .fill(Color(red: 224/255, green: 229/255, blue: 226/255))
+                                    .frame(height: 1)
+                            }
+                        }
+                    }
+
+                    Text("미션은 매주 월요일 0시에 새로 시작돼요")
+                        .font(.custom("Pretendard-Regular", size: 12))
+                        .foregroundStyle(muted)
+                        .padding(.top, 20)
+                        .padding(.bottom, 28)
+                }
+                .padding(.horizontal, 29)
+                // The full-screen challenge cover already starts below the status bar.
+                // Adding the full safe-area inset again pushed the whole layout down.
+                .padding(.top, 8)
+                .frame(minHeight: geometry.size.height, alignment: .topLeading)
+            }
+            .background(Color(red: 245/255, green: 247/255, blue: 249/255).ignoresSafeArea())
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .preferredColorScheme(.light)
+        .alert("보상", isPresented: $showingRewardNotice) {
+            Button("확인", role: .cancel) { }
+        } message: {
+            Text("포인트 적립 기능은 아직 연결되지 않아 실제 포인트는 지급되지 않아요.")
+        }
+    }
+
+    private func missionRow(_ mission: (String, Int, Int, Int)) -> some View {
+        VStack(spacing: 11) {
+            HStack(spacing: 8) {
+                Text(mission.0)
+                    .font(.custom("Pretendard-SemiBold", size: 15))
+                    .foregroundStyle(ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer(minLength: 4)
+                Text("+\(mission.3)P")
+                    .font(.custom("Pretendard-Bold", size: 15))
+                    .foregroundStyle(Color(red: 77/255, green: 132/255, blue: 46/255))
+            }
+            HStack(spacing: 10) {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color(red: 226/255, green: 232/255, blue: 228/255))
+                        Capsule().fill(progressGreen)
+                            .frame(width: proxy.size.width * CGFloat(mission.1) / CGFloat(mission.2))
+                    }
+                }
+                .frame(height: 7)
+                Text("\(mission.1) / \(mission.2)")
+                    .font(.custom("Pretendard-Medium", size: 13))
+                    .foregroundStyle(muted)
+                    .monospacedDigit()
+            }
+        }
+        .padding(.vertical, 15)
+    }
+
+    private struct ChallengePressStyle: ButtonStyle {
+        let reduceMotion: Bool
+
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.97 : 1)
+                .opacity(configuration.isPressed ? 0.82 : 1)
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.84), value: configuration.isPressed)
+        }
     }
 }
 
