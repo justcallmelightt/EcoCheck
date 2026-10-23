@@ -12,11 +12,18 @@ struct ContentView: View {
     @State private var showingManual = false
     @State private var showingHistory = false
     @State private var showingSettings = false
+    @State private var showingProfile = false
+    @State private var showingNotifications = false
+    @State private var showingAccount = false
+    @State private var routeToAccountAfterCover = false
     @State private var showingMap = false
     @State private var selectedTab = "홈"
     @State private var photoError: String?
     @State private var loadTask: Task<Void, Never>?
     @State private var recycleCount = 0
+    @AppStorage("ecoCheckHasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("ecoCheckHasSeenLoginEntry") private var hasSeenLoginEntry = false
+    @State private var showingOnboarding = false
 
     private let background = Color(red: 245/255, green: 247/255, blue: 249/255)
     private let lime = Color(red: 192/255, green: 251/255, blue: 62/255)
@@ -34,6 +41,10 @@ struct ContentView: View {
         .statusBarHidden()
         .preferredColorScheme(.light)
         .task { await loadHomeMetrics() }
+        .onAppear {
+            if !hasSeenOnboarding { showingOnboarding = true }
+            else if !hasSeenLoginEntry { hasSeenLoginEntry = true; showingAccount = true }
+        }
         .onChange(of: showingManual) { _, shown in if !shown { Task { await loadHomeMetrics() } } }
         .onChange(of: showingPreview) { _, shown in if !shown { Task { await loadHomeMetrics() } } }
         .onChange(of: showingHistory) { _, shown in if !shown { Task { await loadHomeMetrics() } } }
@@ -61,6 +72,20 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showingSettings) {
             ServerSettingsView()
+        }
+        .fullScreenCover(isPresented: $showingAccount) { AccountFlowView() }
+        .fullScreenCover(isPresented: $showingOnboarding, onDismiss: {
+            if routeToAccountAfterCover {
+                routeToAccountAfterCover = false
+                hasSeenLoginEntry = true
+                showingAccount = true
+            }
+        }) {
+            OnboardingFlowView {
+                hasSeenOnboarding = true
+                routeToAccountAfterCover = true
+                showingOnboarding = false
+            }
         }
         .fullScreenCover(isPresented: $showingMap) {
             BinMapView { destination in
