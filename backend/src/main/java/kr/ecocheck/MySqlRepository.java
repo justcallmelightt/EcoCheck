@@ -33,14 +33,15 @@ final class MySqlRepository implements ScanRepository {
     try (var c = connect()) {
       try (var s =
           c.prepareStatement(
-              "INSERT INTO ecocheck_v2_scans(id,owner_hash,category_id,name,material,model_version)"
-                  + " VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id")) {
+              "INSERT INTO ecocheck_v2_scans(id,owner_hash,category_id,name,material,source,model_version)"
+                  + " VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id")) {
         s.setString(1, a.id());
         s.setString(2, owner);
         s.setString(3, a.categoryId());
         s.setString(4, a.name());
         s.setString(5, a.material());
-        s.setString(6, a.modelVersion());
+        s.setString(6, a.source());
+        s.setString(7, a.modelVersion());
         s.executeUpdate();
       }
       try (var s =
@@ -61,6 +62,7 @@ final class MySqlRepository implements ScanRepository {
         r.getString("category_id"),
         r.getString("name"),
         r.getString("material"),
+        r.getString("source"),
         r.getString("model_version"),
         r.getTimestamp("created_at", Calendar.getInstance(TimeZone.getTimeZone("UTC")))
             .toInstant()

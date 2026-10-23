@@ -173,6 +173,21 @@ final class EcoCheckHttpServer implements AutoCloseable {
       respond(e, 200, db.save(owner, analyses.forSave(owner, id)));
       return;
     }
+    if (path.equals("/api/v1/scans/manual")) {
+      method(e, "POST");
+      String owner = owner(e);
+      var b = body(e, 4096, Set.of("requestId", "categoryId", "confirmed"));
+      String id = uuid(string(b, "requestId"));
+      String categoryId = string(b, "categoryId");
+      if (!b.has("confirmed")
+          || !b.get("confirmed").isJsonPrimitive()
+          || !b.get("confirmed").getAsJsonPrimitive().isBoolean()
+          || !b.get("confirmed").getAsBoolean())
+        throw new ApiException(
+            400, "CONFIRMATION_REQUIRED", "직접 선택한 분류를 확인한 뒤 confirmed=true로 저장해주세요.");
+      respond(e, 200, db.save(owner, guides.manualSelection(id, categoryId)));
+      return;
+    }
     if (path.startsWith("/api/v1/scans/")) {
       method(e, "DELETE");
       String owner = owner(e), id = uuid(path.substring("/api/v1/scans/".length()));

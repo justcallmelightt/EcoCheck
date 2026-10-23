@@ -27,6 +27,7 @@ final class Models {
       String categoryId,
       String name,
       String material,
+      String source,
       String modelVersion,
       String createdAt) {}
 

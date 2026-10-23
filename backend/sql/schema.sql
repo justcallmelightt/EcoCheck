@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS ecocheck_v2_scans (
     category_id VARCHAR(60) NOT NULL,
     name VARCHAR(100) NOT NULL,
     material VARCHAR(100) NOT NULL,
+    source VARCHAR(20) NOT NULL DEFAULT 'gemini',
     model_version VARCHAR(100) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     INDEX idx_owner_created(owner_hash,created_at)

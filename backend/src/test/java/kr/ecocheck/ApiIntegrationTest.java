@@ -271,6 +271,7 @@ class ApiIntegrationTest {
                       a.categoryId(),
                       a.name(),
                       a.material(),
+                      a.source(),
                       a.modelVersion(),
                       "2026-10-23T00:00:00Z"));
     }

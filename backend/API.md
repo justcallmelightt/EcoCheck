@@ -10,6 +10,7 @@
 | GET | /api/v1/bins?lat=37.5665&lng=126.978&radius=1000&type=all | 주변 쓰레기통 최대 100개, 거리순 |
 | POST | /api/v1/analyze | Gemini 사진 분석, DB 저장 없음 |
 | POST | /api/v1/scans | 확인한 분석 결과 저장 |
+| POST | /api/v1/scans/manual | 직접 선택한 공통 분류를 기록으로 저장 |
 | GET | /api/v1/scans?limit=50&offset=0 | 내 기록 조회 |
 | DELETE | /api/v1/scans/{id} | 내 기록 삭제 |
 | GET | /api/v1/statistics | 내 저장 기록 수 |
@@ -43,7 +44,7 @@ Content-Type은 application/json. JPEG/PNG 최대 4MiB, 최대 2500만 픽셀. i
 }
 ```
 
-신뢰도를 임의의 정확도 수치로 만들지 않습니다. 미지원/미확정 결과는 `saveAllowed=false`이며 기록 저장이 막힙니다. 재촬영 또는 `/categories`로 수동 안내를 보여주세요. 수동 선택을 AI 기록으로 저장하지 않습니다. AI 출력은 정답 보장이 아니며 실제 모델 정확도는 별도 사진 세트로 평가해야 합니다.
+신뢰도를 임의의 정확도 수치로 만들지 않습니다. 미지원/미확정 결과는 `saveAllowed=false`이며 AI 기록 저장이 막힙니다. 재촬영 또는 `/categories`로 수동 안내를 보여주세요. 수동 선택은 아래 별도 API에서 `source=manual`로 저장하며 AI 기록과 구분됩니다. AI 출력은 정답 보장이 아니며 실제 모델 정확도는 별도 사진 세트로 평가해야 합니다.
 
 ## 저장·조회·삭제
 
@@ -56,6 +57,16 @@ Content-Type은 application/json. JPEG/PNG 최대 4MiB, 최대 2500만 픽셀. i
 서버에 보관한 동일 기기의 분석 결과만 저장할 수 있습니다. 결과 유효시간 30분. 재시도는 같은 analysisId를 사용하며 DB에는 한 건만 저장됩니다. 분석 결과를 서버가 재시작 후에는 기억하지 못하므로 저장 실패 시 먼저 기록을 조회한 뒤 필요하면 다시 분석합니다. 기록을 삭제하면 임시 분석도 제거해 같은 결과로 되살릴 수 없게 합니다.
 
 저장 응답은 `id,categoryId,name,material,modelVersion,createdAt`입니다. 생성 시각은 서버 UTC(ISO 8601)입니다. 조회는 `{items:[...],total:1,limit:50,offset:0}`. limit 1~100, offset 0~10000.
+
+### 직접 선택한 분류 기록
+
+사용자가 사진 분석 대신 `/api/v1/categories`의 안내를 직접 고른 뒤 저장을 확인하면 요청합니다. 서버가 `categoryId`를 공통 안내에서 조회해 이름·재질을 채우므로 클라이언트가 보낸 임의의 분류명은 저장되지 않습니다. `requestId`는 클라이언트가 요청 전에 만든 UUID이며, 네트워크 재시도에는 같은 값을 사용해 중복 기록을 막습니다.
+
+```json
+{"requestId":"서버 호출 전 생성한 UUID","categoryId":"pet_bottle","confirmed":true}
+```
+
+응답은 일반 기록과 같은 형식이며 `source`는 `manual`, `modelVersion`은 `manual-v1`입니다. 기존 DB를 사용하는 경우에는 아래 `sql/migrations/002_scan_source.sql`을 한 번 실행해야 합니다.
 
 ## 지도 데이터
 
