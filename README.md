@@ -13,7 +13,7 @@
 
 | 프로필 | GitHub | 역할 | 담당 |
 | :---: | :---: | :---: | :--- |
-| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Team Leader <br> Full-Stack** [N%] | Front-end, Back-end, Design, Team Leader |
+| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Team Leader <br> Full-Stack** [N%] | Front-end, Back-end, Design |
 | <img src="https://github.com/ksm524923.png" width="80"> | **고성민**<br>([@ksm524923](https://github.com/ksm524923)) | **Back-end** [N%] | MySQL, Java |
 | <img src="https://github.com/iioct.png" width="80"> | **이인서**<br>([@iioct](https://github.com/iioct)) | **Design** [N%] | UI 디자인 |
 
