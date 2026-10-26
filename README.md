@@ -1,3 +1,5 @@
+![EcoCheck](./assets/EcoCheck.png)
+
 # EcoCheck
 
 ![EcoCheck](./assets/EcoCheck.png)
