@@ -1,6 +1,6 @@
-# EcoCheck
-
 ![EcoCheck](./assets/EcoCheck.png)
+
+# EcoCheck
 
 ![Swift](https://img.shields.io/badge/Swift-F05138?style=for-the-badge&logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-007ACC?style=for-the-badge&logo=swift&logoColor=white)
