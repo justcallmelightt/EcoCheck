@@ -30,6 +30,21 @@ CREATE TABLE IF NOT EXISTS ecocheck_v2_bins (
     CONSTRAINT chk_bin_coordinates CHECK ((latitude IS NULL AND longitude IS NULL) OR (latitude IS NOT NULL AND longitude IS NOT NULL AND latitude BETWEEN 37 AND 38 AND longitude BETWEEN 126 AND 128))
 );
 
+CREATE TABLE IF NOT EXISTS ecocheck_v2_addresses (
+    source_file VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    line_number INT UNSIGNED NOT NULL,
+    raw_line TEXT NOT NULL,
+    sido VARCHAR(100),
+    sigungu VARCHAR(100),
+    road_name VARCHAR(150),
+    building_main VARCHAR(20),
+    building_sub VARCHAR(20),
+    x DOUBLE NULL,
+    y DOUBLE NULL,
+    PRIMARY KEY (source_file, line_number),
+    INDEX idx_address_road (sido, sigungu, road_name, building_main, building_sub)
+);
+
 -- 앱 전용 계정은 아래 예시를 복사하고 비밀번호를 바꿔 별도로 실행하세요.
 -- CREATE USER 'ecocheck'@'127.0.0.1' IDENTIFIED BY '본인이정한긴비밀번호';
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON ecocheck.* TO 'ecocheck'@'127.0.0.1';

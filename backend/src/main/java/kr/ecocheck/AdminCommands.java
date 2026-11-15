@@ -3,12 +3,20 @@ package kr.ecocheck;
 import com.google.gson.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.nio.charset.Charset;
+import java.sql.*;
+import java.io.BufferedReader;
 import java.util.*;
 import kr.ecocheck.Models.Bin;
 
 /** 비용이 발생할 수 있는 외부 호출/데이터 적재는 공개 API가 아닌 로컬 CLI에서만 실행합니다. */
 final class AdminCommands {
   static void run(String[] args, AppConfig config, MySqlRepository db) throws Exception {
+    if (args[0].equals("--import-addresses")) {
+      if (args.length != 2) throw new IllegalArgumentException("사용법: --import-addresses DIRECTORY");
+      importAddresses(Path.of(args[1]), db);
+      return;
+    }
     if (args[0].equals("--check-naver")) {
       if (args.length != 1) throw new IllegalArgumentException("사용법: --check-naver");
       var naver = new NaverMapClient(config);
@@ -209,8 +217,64 @@ final class AdminCommands {
       return;
     }
     throw new IllegalArgumentException(
-        "명령: --check-apis | --check-naver | --check-gemini-image FILE.jpg | --import-bins FILE.json | --geocode-bins INPUT.json OUTPUT.json | --geocode-bins-osm INPUT.json OUTPUT.json"
+        "명령: --check-apis | --check-naver | --check-gemini-image FILE.jpg | --import-bins FILE.json | --import-addresses DIRECTORY | --geocode-bins INPUT.json OUTPUT.json | --geocode-bins-osm INPUT.json OUTPUT.json"
             + " [최대호출수=10] [자치구]");
+  }
+
+  private static void importAddresses(Path directory, MySqlRepository db) throws Exception {
+    if (!Files.isDirectory(directory)) throw new IllegalArgumentException("주소 데이터 폴더가 없습니다: " + directory);
+    var files = new ArrayList<Path>();
+    try (var stream = Files.list(directory)) {
+      stream.filter(p -> p.getFileName().toString().matches("entrc_[a-z]+\\.txt"))
+          .sorted().forEach(files::add);
+    }
+    if (files.isEmpty()) throw new IllegalArgumentException("entrc_*.txt 지역 파일이 없습니다.");
+    if (files.size() != 16) System.out.println("주의: 지역 파일 " + files.size() + "개 발견. 전국 전체는 16개입니다.");
+    String sql = "INSERT INTO ecocheck_v2_addresses(source_file,line_number,raw_line,sido,sigungu,"
+        + "road_name,building_main,building_sub,x,y) VALUES (?,?,?,?,?,?,?,?,?,?) "
+        + "ON DUPLICATE KEY UPDATE raw_line=VALUES(raw_line),sido=VALUES(sido),"
+        + "sigungu=VALUES(sigungu),road_name=VALUES(road_name),"
+        + "building_main=VALUES(building_main),building_sub=VALUES(building_sub),"
+        + "x=VALUES(x),y=VALUES(y)";
+    long total = 0, invalid = 0;
+    try (var connection = db.connect(); var statement = connection.prepareStatement(sql)) {
+      connection.setAutoCommit(false);
+      for (var file : files) {
+        long lineNumber = 0, fileInvalid = 0;
+        try (BufferedReader reader = Files.newBufferedReader(file, Charset.forName("MS949"))) {
+          String line;
+          while ((line = reader.readLine()) != null) {
+            lineNumber++;
+            String[] fields = line.split("\\|", -1);
+            statement.setString(1, file.getFileName().toString());
+            statement.setLong(2, lineNumber);
+            statement.setString(3, line);
+            statement.setString(4, fields.length == 18 ? fields[3] : null);
+            statement.setString(5, fields.length == 18 ? fields[4] : null);
+            statement.setString(6, fields.length == 18 ? fields[7] : null);
+            statement.setString(7, fields.length == 18 ? fields[9] : null);
+            statement.setString(8, fields.length == 18 ? fields[10] : null);
+            try {
+              if (fields.length != 18) throw new NumberFormatException("field count");
+              statement.setDouble(9, Double.parseDouble(fields[16]));
+              statement.setDouble(10, Double.parseDouble(fields[17]));
+            } catch (NumberFormatException e) {
+              statement.setNull(9, Types.DOUBLE);
+              statement.setNull(10, Types.DOUBLE);
+              fileInvalid++;
+            }
+            statement.addBatch();
+            if (lineNumber % 1000 == 0) { statement.executeBatch(); connection.commit(); }
+          }
+        }
+        statement.executeBatch();
+        connection.commit();
+        total += lineNumber;
+        invalid += fileInvalid;
+        System.out.println(file.getFileName() + ": " + lineNumber + " rows, 좌표 미확인 " + fileInvalid);
+      }
+    }
+    System.out.println("전체 주소 적재: " + total + " rows, 좌표 미확인 " + invalid);
   }
 
   private static void validate(Bin b) {

@@ -102,6 +102,23 @@ java -jar target/ecocheck-server-0.1.0.jar --import-bins data/seoul-bins-located
 
 원본 JSON을 먼저 적재해도 되지만 좌표가 없으므로 지도 검색에는 나오지 않습니다. 같은 ID 재적재는 해당 항목을 갱신하며, 파일에서 빠진 예전 항목을 삭제하지 않습니다. 과거 자료 정리는 별도 검토 후 수행해야 합니다.
 
+### 2026년 9월 전국 위치정보요약DB 적재
+
+주소기반산업지원서비스에서 받은 `entrc_*.txt` 16개를 한 폴더에 둡니다. 원본은 CP949, 파이프 구분 형식입니다. `sql/schema.sql`을 다시 실행해 `ecocheck_v2_addresses` 테이블을 만든 뒤 다음을 실행합니다. 기존 수거함 테이블과 원본 파일은 변경하지 않습니다.
+
+```sh
+cd backend
+./mvnw package -DskipTests
+java -jar target/ecocheck-server-0.1.0.jar --import-addresses "/path/to/202609_위치정보요약DB_전체분"
+```
+
+각 행의 원문과 주소 검색용 필드, 원본 X/Y 좌표를 저장합니다. 파일명과 줄 번호를 기본키로 사용하므로 같은 파일을 다시 실행하면 해당 행이 갱신됩니다. 1,000행마다 커밋하며 중간에 중단되면 재실행할 수 있습니다. 파일이 일부만 있어도 해당 지역부터 적재할 수 있습니다. 필드 수가 다르거나 좌표가 비어 있는 행도 원문을 보존하고 좌표를 NULL로 둡니다. 원본 X/Y는 지도용 위도·경도로 변환한 값이 아닙니다. 수거함 주소와 매칭한 뒤 좌표계를 확인하고 변환해야 지도에 표시할 수 있습니다.
+
+```sql
+SELECT source_file, COUNT(*) FROM ecocheck_v2_addresses GROUP BY source_file;
+SELECT COUNT(*) FROM ecocheck_v2_addresses WHERE x IS NULL OR y IS NULL;
+```
+
 ## 5. 테스트
 
 ```powershell
