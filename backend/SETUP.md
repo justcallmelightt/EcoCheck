@@ -114,6 +114,16 @@ java -jar target/ecocheck-server-0.1.0.jar --import-addresses "/path/to/202609_�
 
 각 행의 원문과 주소 검색용 필드, 원본 X/Y 좌표를 저장합니다. 파일명과 줄 번호를 기본키로 사용하므로 같은 파일을 다시 실행하면 해당 행이 갱신됩니다. 1,000행마다 커밋하며 중간에 중단되면 재실행할 수 있습니다. 파일이 일부만 있어도 해당 지역부터 적재할 수 있습니다. 필드 수가 다르거나 좌표가 비어 있는 행도 원문을 보존하고 좌표를 NULL로 둡니다. 원본 X/Y는 지도용 위도·경도로 변환한 값이 아닙니다. 수거함 주소와 매칭한 뒤 좌표계를 확인하고 변환해야 지도에 표시할 수 있습니다.
 
+### 수거함 주소와 서울 좌표 참조자료 매칭
+
+전국 원본 대신, 서울시 수거함 목록에서 도로명과 건물번호가 명확한 주소만 위치정보요약DB의 서울 자료와 일치시킨 가공 결과를 `data/seoul-bin-address-coordinate-proxies-202609.json`에 보관합니다. 다시 생성하려면 다음을 실행합니다.
+
+```sh
+python3 scripts/match-bin-address-coordinates.py data/seoul-bins-202511.json /path/to/entrc_seoul.txt data/seoul-bin-address-coordinate-proxies-202609.json
+```
+
+한 주소에 서로 다른 좌표가 있으면 제외합니다. 결과의 X/Y는 **건물 출입구의 대리 좌표**로, 수거함의 실측 위치가 아닙니다. 좌표계 확인과 경위도 변환 전이므로 지도 마커나 주변 거리 계산에 바로 사용하지 마세요. 원본 전국 파일과 MySQL 전체 주소 테이블은 GitHub에 포함하지 않습니다. 출처: [행정안전부 도로명주소 위치정보요약DB](https://www.data.go.kr/data/15050410/fileData.do), 2026년 9월, 공공누리 제1유형(출처표시).
+
 ```sql
 SELECT source_file, COUNT(*) FROM ecocheck_v2_addresses GROUP BY source_file;
 SELECT COUNT(*) FROM ecocheck_v2_addresses WHERE x IS NULL OR y IS NULL;
