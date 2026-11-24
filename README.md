@@ -15,7 +15,7 @@
 
 | 프로필 | GitHub | 역할 | 담당 |
 | :---: | :---: | :---: | :--- |
-| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Team Lead <br> Product Engineer <br> Full-Stackk** [N%] | 제품 기획 및 방향성 설정, 기술적 의사결정, Design 감독,<br> UI/UX 설계 및 구현, Full-Stack 개발 |
+| <img src="https://github.com/justcallmelightt.png" width="80"> | **권율**<br>([@justcallmelightt](https://github.com/justcallmelightt)) | **Team Lead <br> Product Engineer <br> Full-Stackk** [N%] | 제품 기획 및 방향성 설정, 기술적 의사결정,<br> Design 감독, UI/UX 설계 및 구현, Full-Stack 개발 |
 | <img src="https://github.com/ksm524923.png" width="80"> | **고성민**<br>([@ksm524923](https://github.com/ksm524923)) | **Back-end** [N%] | Back-end 주 담당, Java 서버 및 API 개발, MySQL DB 설계·구축 |
 | <img src="https://github.com/iioct.png" width="80"> | **이인서**<br>([@iioct](https://github.com/iioct)) | **Design** [N%] | Figma 기반 UI 디자인, Visual Design, 디자인 피드백 반영 및 개선 |
 
