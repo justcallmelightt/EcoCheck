@@ -28,11 +28,14 @@ def main():
     parser.add_argument("bins", type=Path)
     parser.add_argument("seoul_reference", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--worklist", type=Path, help="검토가 필요한 미매칭 주소 목록")
     args = parser.parse_args()
 
     bins = json.loads(args.bins.read_text(encoding="utf-8"))["items"]
     groups = collections.defaultdict(list)
+    source_groups = collections.defaultdict(list)
     for item in bins:
+        source_groups[(item["district"], item["address"].strip())].append(item)
         address_key = key(item["district"], item["address"])
         if address_key:
             groups[address_key].append(item["id"])
@@ -84,6 +87,42 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"주소 {len(matches):,}건, 수거함 {result['matchedBins']:,}건 매칭; 중복 좌표 주소 {ambiguous:,}건 제외")
+
+    if args.worklist:
+        matched_ids = {bin_id for item in matches for bin_id in item["binIds"]}
+        pending = []
+        for (district, address), source_bins in sorted(source_groups.items()):
+            unresolved = [item for item in source_bins if item["id"] not in matched_ids]
+            if not unresolved:
+                continue
+            address_key = key(district, address)
+            if address_key is None:
+                reason = "주소 형식에 도로명과 건물번호가 없음; 직접 확인 필요"
+            elif len(candidates.get(address_key, ())) > 1:
+                reason = "동일 주소에 서로 다른 출입구 좌표가 있음; 직접 확인 필요"
+            else:
+                reason = "서울 위치정보요약DB에서 일치하는 출입구 좌표를 찾지 못함"
+            pending.append({
+                "district": district,
+                "sourceAddress": address,
+                "binIds": [item["id"] for item in unresolved],
+                "locationDetails": sorted({item["detail"] for item in unresolved if item["detail"]}),
+                "reason": reason,
+            })
+        worklist = {
+            "purpose": "미매칭 수거함 주소 검토 목록; 좌표 추정 금지",
+            "binSource": "서울시 가로휴지통 2025-11",
+            "referenceSource": "행정안전부 도로명주소 위치정보요약DB 2026-09",
+            "referenceUrl": "https://www.data.go.kr/data/15050410/fileData.do",
+            "referenceLicense": "공공누리 제1유형(출처표시)",
+            "unmatchedAddresses": len(pending),
+            "unmatchedBins": sum(len(item["binIds"]) for item in pending),
+            "reasonCounts": dict(sorted(collections.Counter(item["reason"] for item in pending).items())),
+            "items": pending,
+        }
+        args.worklist.parent.mkdir(parents=True, exist_ok=True)
+        args.worklist.write_text(json.dumps(worklist, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"검토 목록: 주소 {len(pending):,}건, 수거함 {worklist['unmatchedBins']:,}건")
 
 
 if __name__ == "__main__":
